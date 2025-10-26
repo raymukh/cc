@@ -44,13 +44,13 @@ final class DataController: ObservableObject {
     func toggleTask(_ task: TaskItem) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index].isCompleted.toggle()
-        persistence.persist(tasks: tasks)
+        Task { await persistence.persist(tasks: tasks) }
     }
 
     func addQuickNote(_ note: ActivityEvent.Note) {
         let event = ActivityEvent(id: UUID(), title: "Note added", timestamp: .now, kind: .note(note))
         activity.insert(event, at: 0)
-        persistence.persist(activity: activity)
+        Task { await persistence.persist(activity: activity) }
     }
 
     func apply(snapshot: DataSnapshot) {
@@ -95,12 +95,12 @@ actor LocalPersistence {
         }
     }
 
-    func persist(tasks: [TaskItem]) {
-        Task { await persistPartial { snapshot in snapshot.tasks = tasks } }
+    func persist(tasks: [TaskItem]) async {
+        await persistPartial { snapshot in snapshot.tasks = tasks }
     }
 
-    func persist(activity: [ActivityEvent]) {
-        Task { await persistPartial { snapshot in snapshot.activity = activity } }
+    func persist(activity: [ActivityEvent]) async {
+        await persistPartial { snapshot in snapshot.activity = activity }
     }
 
     private func persist(snapshot: DataSnapshot) throws {
