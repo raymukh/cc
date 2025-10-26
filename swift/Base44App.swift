@@ -14,24 +14,125 @@ struct BridgeAIApp: App {
 // MARK: - Root scene
 @available(iOS 16.0, macOS 13.0, *)
 struct BridgeAIDashboardScene: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var viewModel = DashboardViewModel.sample()
+    @State private var showHotlines = false
+
+    private var isCompact: Bool {
+        horizontalSizeClass == .compact
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            SidebarView(items: viewModel.sidebarItems, hotlines: viewModel.hotlines)
-                .frame(width: 260)
-                .background(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 6, y: 0)
+        Group {
+            if isCompact {
+                NavigationStack {
+                    DashboardContentView(viewModel: viewModel, layout: .compact)
+                        .background(Color(.systemGroupedBackground))
+                        .navigationTitle("BridgeAI")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Menu {
+                                    Section("Navigate") {
+                                        ForEach(viewModel.sidebarItems) { item in
+                                            Button(action: {}) {
+                                                Label(item.title, systemImage: item.icon)
+                                            }
+                                            .disabled(item.isActive)
+                                        }
+                                    }
 
-            Divider()
-                .opacity(0.0)
+                                    Section("Support") {
+                                        Button {
+                                            showHotlines = true
+                                        } label: {
+                                            Label("Emergency Hotlines", systemImage: "phone.fill")
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "line.3.horizontal.decrease.circle")
+                                        .imageScale(.large)
+                                }
+                            }
+                        }
+                }
+                .sheet(isPresented: $showHotlines) {
+                    HotlineListSheet(hotlines: viewModel.hotlines)
+                }
+            } else {
+                HStack(spacing: 0) {
+                    SidebarView(items: viewModel.sidebarItems, hotlines: viewModel.hotlines)
+                        .frame(width: 264)
+                        .frame(maxHeight: .infinity)
+                        .background(Color(.systemBackground))
+                        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 6, y: 0)
 
-            DashboardContentView(viewModel: viewModel)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
+                    DashboardContentView(viewModel: viewModel, layout: .regular)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemGroupedBackground))
+                }
+                .ignoresSafeArea(.all, edges: .vertical)
+            }
         }
-        .ignoresSafeArea(.all, edges: .vertical)
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
+}
+
+// MARK: - Layout configuration
+
+struct DashboardLayout {
+    let isCompact: Bool
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let sectionSpacing: CGFloat
+    let sectionHeaderSpacing: CGFloat
+    let stackSpacing: CGFloat
+    let cardPadding: CGFloat
+    let cardContentSpacing: CGFloat
+    let gridSpacing: CGFloat
+    let quickActionMinWidth: CGFloat
+    let quickActionMinHeight: CGFloat
+    let safetyMetricMinWidth: CGFloat
+    let safetyMetricMinHeight: CGFloat
+
+    var quickActionColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: quickActionMinWidth), spacing: gridSpacing, alignment: .top)]
+    }
+
+    var safetyColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: safetyMetricMinWidth), spacing: gridSpacing, alignment: .top)]
+    }
+
+    static let compact = DashboardLayout(
+        isCompact: true,
+        horizontalPadding: 20,
+        verticalPadding: 24,
+        sectionSpacing: 24,
+        sectionHeaderSpacing: 12,
+        stackSpacing: 18,
+        cardPadding: 20,
+        cardContentSpacing: 14,
+        gridSpacing: 16,
+        quickActionMinWidth: 160,
+        quickActionMinHeight: 128,
+        safetyMetricMinWidth: 160,
+        safetyMetricMinHeight: 128
+    )
+
+    static let regular = DashboardLayout(
+        isCompact: false,
+        horizontalPadding: 32,
+        verticalPadding: 36,
+        sectionSpacing: 28,
+        sectionHeaderSpacing: 16,
+        stackSpacing: 20,
+        cardPadding: 24,
+        cardContentSpacing: 18,
+        gridSpacing: 18,
+        quickActionMinWidth: 210,
+        quickActionMinHeight: 140,
+        safetyMetricMinWidth: 190,
+        safetyMetricMinHeight: 140
+    )
 }
 
 // MARK: - Sidebar
@@ -137,28 +238,69 @@ struct SidebarRow: View {
     }
 }
 
+@available(iOS 16.0, macOS 13.0, *)
+struct HotlineListSheet: View {
+    let hotlines: [Hotline]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(hotlines) { hotline in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(hotline.label)
+                            .font(.headline)
+                        Text(hotline.number)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "phone.fill")
+                        .foregroundStyle(Color.blue)
+                }
+                .padding(.vertical, 4)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Emergency Hotlines")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+#if os(iOS)
+        .presentationDetents([.medium, .large])
+#endif
+    }
+}
+
 // MARK: - Main dashboard content
 @available(iOS 16.0, macOS 13.0, *)
 struct DashboardContentView: View {
     @ObservedObject var viewModel: DashboardViewModel
+    let layout: DashboardLayout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                HeaderView(user: viewModel.user, readiness: viewModel.readiness)
+            VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                HeaderView(user: viewModel.user, readiness: viewModel.readiness, layout: layout)
 
-                QuickActionsSection(actions: viewModel.quickActions)
+                QuickActionsSection(actions: viewModel.quickActions, layout: layout)
 
-                SafetyStatusSection(metrics: viewModel.safetyMetrics)
+                SafetyStatusSection(metrics: viewModel.safetyMetrics, layout: layout)
 
-                VStack(spacing: 20) {
-                    RecentActivityCard(activity: viewModel.recentActivity)
-                    SafetyTipCard(tip: viewModel.dailyTip)
+                VStack(spacing: layout.stackSpacing) {
+                    RecentActivityCard(activity: viewModel.recentActivity, layout: layout)
+                    SafetyTipCard(tip: viewModel.dailyTip, layout: layout)
                 }
             }
-            .padding(.horizontal, 32)
-            .padding(.vertical, 36)
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.vertical, layout.verticalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollIndicators(.hidden)
     }
 }
 
@@ -167,18 +309,21 @@ struct DashboardContentView: View {
 struct HeaderView: View {
     let user: DashboardUser
     let readiness: EmergencyReadiness
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: layout.stackSpacing) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Welcome to \(user.displayName)")
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: layout.isCompact ? 28 : 34, weight: .bold))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(nil)
                 Text("Your intelligent safety companion, ready when you need it most")
-                    .font(.subheadline)
+                    .font(layout.isCompact ? .callout : .subheadline)
                     .foregroundStyle(.secondary)
             }
 
-            EmergencyReadinessCard(readiness: readiness)
+            EmergencyReadinessCard(readiness: readiness, layout: layout)
         }
     }
 }
@@ -186,15 +331,16 @@ struct HeaderView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct EmergencyReadinessCard: View {
     let readiness: EmergencyReadiness
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: layout.stackSpacing) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Emergency Readiness")
                         .font(.headline)
                     Text(readiness.description)
-                        .font(.subheadline)
+                        .font(layout.isCompact ? .callout : .subheadline)
                         .foregroundStyle(.secondary)
                 }
 
@@ -207,7 +353,7 @@ struct EmergencyReadinessCard: View {
 
             ProgressView(value: readiness.score)
                 .tint(readiness.accent)
-                .scaleEffect(x: 1, y: 1.4, anchor: .center)
+                .scaleEffect(x: 1, y: layout.isCompact ? 1.2 : 1.4, anchor: .center)
 
             Text(readiness.statusMessage)
                 .font(.footnote.weight(.semibold))
@@ -219,7 +365,7 @@ struct EmergencyReadinessCard: View {
                         .fill(readiness.accent.opacity(0.1))
                 )
         }
-        .padding(24)
+        .padding(layout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -233,15 +379,16 @@ struct EmergencyReadinessCard: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct QuickActionsSection: View {
     let actions: [QuickAction]
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: layout.sectionHeaderSpacing) {
             Text("Quick Actions")
                 .font(.title3.weight(.semibold))
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: 3), spacing: 18) {
+            LazyVGrid(columns: layout.quickActionColumns, spacing: layout.gridSpacing) {
                 ForEach(actions) { action in
-                    QuickActionCard(action: action)
+                    QuickActionCard(action: action, layout: layout)
                 }
             }
         }
@@ -251,15 +398,16 @@ struct QuickActionsSection: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct QuickActionCard: View {
     let action: QuickAction
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: layout.cardContentSpacing) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(action.title)
                         .font(.headline)
                     Text(action.subtitle)
-                        .font(.subheadline)
+                        .font(layout.isCompact ? .callout : .subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -277,8 +425,8 @@ struct QuickActionCard: View {
             }
             .padding(.top, 4)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+        .padding(layout.cardPadding)
+        .frame(maxWidth: .infinity, minHeight: layout.quickActionMinHeight, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
@@ -295,15 +443,16 @@ struct QuickActionCard: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct SafetyStatusSection: View {
     let metrics: [SafetyMetric]
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: layout.sectionHeaderSpacing) {
             Text("Your Safety Status")
                 .font(.title3.weight(.semibold))
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 4), spacing: 16) {
+            LazyVGrid(columns: layout.safetyColumns, spacing: layout.gridSpacing) {
                 ForEach(metrics) { metric in
-                    SafetyMetricCard(metric: metric)
+                    SafetyMetricCard(metric: metric, layout: layout)
                 }
             }
         }
@@ -313,9 +462,10 @@ struct SafetyStatusSection: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct SafetyMetricCard: View {
     let metric: SafetyMetric
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: layout.cardContentSpacing) {
             Text(metric.title)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
@@ -336,8 +486,8 @@ struct SafetyMetricCard: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(metric.accent)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+        .padding(layout.cardPadding)
+        .frame(maxWidth: .infinity, minHeight: layout.safetyMetricMinHeight, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color.white)
@@ -354,19 +504,20 @@ struct SafetyMetricCard: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct RecentActivityCard: View {
     let activity: RecentActivity
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: layout.cardContentSpacing) {
             Text("Recent Activity")
                 .font(.title3.weight(.semibold))
 
-            HStack(alignment: .center, spacing: 20) {
+            HStack(alignment: .center, spacing: layout.isCompact ? 16 : 20) {
                 Circle()
                     .fill(activity.accent.opacity(0.12))
-                    .frame(width: 64, height: 64)
+                    .frame(width: layout.isCompact ? 56 : 64, height: layout.isCompact ? 56 : 64)
                     .overlay(
                         Image(systemName: activity.icon)
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.system(size: layout.isCompact ? 24 : 28, weight: .semibold))
                             .foregroundStyle(activity.accent)
                     )
 
@@ -374,14 +525,14 @@ struct RecentActivityCard: View {
                     Text(activity.title)
                         .font(.headline)
                     Text(activity.message)
-                        .font(.subheadline)
+                        .font(layout.isCompact ? .callout : .subheadline)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
             }
         }
-        .padding(24)
+        .padding(layout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -394,14 +545,15 @@ struct RecentActivityCard: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct SafetyTipCard: View {
     let tip: SafetyTip
+    let layout: DashboardLayout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: layout.cardContentSpacing) {
             Text("Safety Tip of the Day")
                 .font(.title3.weight(.semibold))
 
             Text(tip.message)
-                .font(.subheadline)
+                .font(layout.isCompact ? .callout : .subheadline)
                 .foregroundStyle(.secondary)
 
             Button(action: {}) {
@@ -416,7 +568,7 @@ struct SafetyTipCard: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(24)
+        .padding(layout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
