@@ -68,8 +68,6 @@ struct AssistiveSupportView: View {
 
                     AssistiveScenarioSection(scenarios: $model.scenarios)
 
-                    DisasterPlanSection(plans: model.disasterPlans)
-
                     SupplyCartSection(items: $model.supplyItems)
 
                     CalmModeSection(settings: $model.calmSettings)
@@ -226,160 +224,6 @@ struct ScenarioStepRow: View {
                 .font(.callout)
                 .foregroundStyle(BridgeAITheme.textPrimary)
         }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct DisasterPlanSection: View {
-    let plans: [DisasterPlan]
-    @State private var currentIndex: Int = 0
-
-    var body: some View {
-        BridgeAISection(title: "Disaster Readiness", subtitle: "Before, during, and after playbooks with live inputs.") {
-            GeometryReader { proxy in
-                let arrowSpace: CGFloat = 52
-                let spacing: CGFloat = 16
-                let availableWidth = proxy.size.width
-                let cardWidth = max(availableWidth - (arrowSpace * 2) - (spacing * 2), 280)
-
-                HStack(spacing: spacing) {
-                    slideshowArrow(direction: .previous) {
-                        shiftPlan(by: -1)
-                    }
-                    .frame(width: arrowSpace)
-
-                    ZStack {
-                        if let plan = currentPlan {
-                            DisasterPlanCard(plan: plan)
-                                .frame(width: cardWidth)
-                                .animation(.easeInOut(duration: 0.3), value: currentIndex)
-                        } else {
-                            VStack(spacing: 12) {
-                                Image(systemName: "exclamationmark.triangle")
-                                    .font(.title2)
-                                    .foregroundStyle(BridgeAITheme.primary)
-
-                                Text("No Plans Available")
-                                    .font(.headline)
-                                    .foregroundStyle(BridgeAITheme.textPrimary)
-
-                                Text("Add readiness guides to see them here.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(BridgeAITheme.textSecondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(width: cardWidth)
-                            .padding(32)
-                            .background(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .fill(BridgeAITheme.surfacePrimary)
-                            )
-                        }
-                    }
-                    .frame(width: cardWidth, height: proxy.size.height)
-
-                    slideshowArrow(direction: .next) {
-                        shiftPlan(by: 1)
-                    }
-                    .frame(width: arrowSpace)
-                }
-                .frame(width: availableWidth, height: proxy.size.height)
-            }
-            .frame(height: 260)
-        }
-    }
-
-    private var currentPlan: DisasterPlan? {
-        guard !plans.isEmpty else { return nil }
-        let safeIndex = min(currentIndex, plans.count - 1)
-        return plans[safeIndex]
-    }
-
-    private func shiftPlan(by offset: Int) {
-        guard !plans.isEmpty else { return }
-        let nextIndex = currentIndex + offset
-        currentIndex = min(max(nextIndex, 0), plans.count - 1)
-    }
-
-    private func slideshowArrow(direction: SlideDirection, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: direction == .previous ? "chevron.left" : "chevron.right")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(BridgeAITheme.textPrimary)
-                .frame(width: 36, height: 36)
-                .background(
-                    Circle()
-                        .fill(BridgeAITheme.surfaceSecondary.opacity(0.85))
-                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(direction.accessibilityLabel)
-    }
-}
-
-private enum SlideDirection {
-    case previous
-    case next
-
-    var accessibilityLabel: String {
-        switch self {
-        case .previous:
-            return "Previous plan"
-        case .next:
-            return "Next plan"
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct DisasterPlanCard: View {
-    let plan: DisasterPlan
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(plan.name)
-                    .font(.headline)
-                    .foregroundStyle(BridgeAITheme.textPrimary)
-
-                Spacer()
-
-                Label(plan.alertLevel, systemImage: "antenna.radiowaves.left.and.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(plan.alertColor)
-                    .labelStyle(.trailingIcon)
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(plan.checklist.prefix(3), id: \.self) { item in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(BridgeAITheme.primary)
-
-                        Text(item)
-                            .font(.callout)
-                            .foregroundStyle(BridgeAITheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            HStack(spacing: 6) {
-                Image(systemName: "cloud.sun")
-                Text("Live feed: \(plan.dataSource)")
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(BridgeAITheme.textMuted)
-        }
-        .padding(.vertical, 24)
-        .padding(.horizontal, 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(BridgeAITheme.surface)
-        )
     }
 }
 
@@ -1236,15 +1080,6 @@ struct CrisisScenario: Identifiable {
     var isExpanded: Bool = false
 }
 
-struct DisasterPlan: Identifiable {
-    let id = UUID()
-    let name: String
-    let alertLevel: String
-    let alertColor: Color
-    let dataSource: String
-    let checklist: [String]
-}
-
 struct SupplyItem: Identifiable {
     let id = UUID()
     let name: String
@@ -1264,14 +1099,12 @@ struct CalmSettings {
 final class AssistiveModel: ObservableObject {
     @Published var overview: AssistiveOverview
     @Published var scenarios: [CrisisScenario]
-    @Published var disasterPlans: [DisasterPlan]
     @Published var supplyItems: [SupplyItem]
     @Published var calmSettings: CalmSettings
 
-    init(overview: AssistiveOverview, scenarios: [CrisisScenario], disasterPlans: [DisasterPlan], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
+    init(overview: AssistiveOverview, scenarios: [CrisisScenario], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
         self.overview = overview
         self.scenarios = scenarios
-        self.disasterPlans = disasterPlans
         self.supplyItems = supplyItems
         self.calmSettings = calmSettings
     }
@@ -1318,47 +1151,17 @@ final class AssistiveModel: ObservableObject {
                         "Move to a higher floor or roof with bright markers.",
                         "Switch communications to text for reliable status updates."
                     ]
-                )
-            ],
-            disasterPlans: [
-                DisasterPlan(
-                    name: "Tornado shelter prep",
-                    alertLevel: "Warning", alertColor: BridgeAITheme.accent,
-                    dataSource: "NOAA feed",
-                    checklist: [
-                        "Move to an interior room away from windows.",
-                        "Use helmets or head protection for everyone.",
-                        "Ping trusted contacts with a quick status."
-                    ]
                 ),
-                DisasterPlan(
-                    name: "Wildfire evacuation",
-                    alertLevel: "Watch", alertColor: BridgeAITheme.primary,
-                    dataSource: "FEMA alerts",
-                    checklist: [
-                        "Seal vents, close windows, and stage the go-bag.",
-                        "Load evac route with live traffic from DOT.",
-                        "Enable smoke trigger for air quality monitor."
-                    ]
-                ),
-                DisasterPlan(
-                    name: "Earthquake aftermath",
-                    alertLevel: "Advisory", alertColor: BridgeAITheme.textSecondary,
-                    dataSource: "USGS updates",
-                    checklist: [
-                        "Check gas, water, and electrical lines for damage.",
-                        "Photograph structural changes for claims.",
-                        "Locate nearby shelters and register arrival."
-                    ]
-                ),
-                DisasterPlan(
-                    name: "Extended outage",
-                    alertLevel: "Monitor", alertColor: BridgeAITheme.textSecondary,
-                    dataSource: "Local utility",
-                    checklist: [
-                        "Track fridge temperature every two hours.",
-                        "Rotate battery packs and keep them charged.",
-                        "Share location heartbeat every 30 minutes."
+                CrisisScenario(
+                    title: "Shelter during a tornado warning",
+                    summary: "Secure a safe room, shield heads, and communicate status updates.",
+                    duration: "5 min",
+                    actionLabel: "Open shelter checklist",
+                    steps: [
+                        "Move everyone to the lowest interior room away from windows.",
+                        "Use helmets, cushions, or mattresses to protect heads and necks.",
+                        "Shut doors, stay beneath sturdy furniture, and keep pets contained.",
+                        "Send a quick status update to emergency contacts once secure."
                     ]
                 )
             ],
