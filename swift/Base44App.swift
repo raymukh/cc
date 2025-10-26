@@ -1,691 +1,589 @@
 import SwiftUI
-import Combine
-import Charts
 
-// MARK: - Application entry point
+// MARK: - Entry point
 @available(iOS 16.0, macOS 13.0, *)
 @main
-struct ProjectPulseApp: App {
-    @StateObject private var dataController = DataController()
-
+struct BridgeAIApp: App {
     var body: some Scene {
         WindowGroup {
-            DashboardContainerView()
-                .environmentObject(dataController)
-                .task { await dataController.bootstrap() }
+            BridgeAIDashboardScene()
         }
     }
 }
 
-// MARK: - Data controller
-@MainActor
-final class DataController: ObservableObject {
-    @Published private(set) var summary: CompanySummary = .placeholder
-    @Published private(set) var projects: [Project] = []
-    @Published private(set) var tasks: [TaskItem] = []
-    @Published private(set) var activity: [ActivityEvent] = []
-
-    private let persistence = LocalPersistence()
-
-    func bootstrap() async {
-        do {
-            let snapshot = try await persistence.loadSnapshot()
-            apply(snapshot: snapshot)
-        } catch {
-            print("Failed to load snapshot: \(error)")
-            apply(snapshot: .placeholder)
-        }
-    }
-
-    func refresh() async {
-        await bootstrap()
-    }
-
-    func toggleTask(_ task: TaskItem) {
-        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
-        tasks[index].isCompleted.toggle()
-        Task { await persistence.persist(tasks: tasks) }
-    }
-
-    func addQuickNote(_ note: ActivityEvent.Note) {
-        let event = ActivityEvent(id: UUID(), title: "Note added", timestamp: .now, kind: .note(note))
-        activity.insert(event, at: 0)
-        Task { await persistence.persist(activity: activity) }
-    }
-
-    func apply(snapshot: DataSnapshot) {
-        summary = snapshot.summary
-        projects = snapshot.projects.sorted { $0.updatedAt > $1.updatedAt }
-        tasks = snapshot.tasks.sorted { $0.dueDate < $1.dueDate }
-        activity = snapshot.activity.sorted { $0.timestamp > $1.timestamp }
-    }
-}
-
-// MARK: - Persistence
-struct DataSnapshot: Codable {
-    var summary: CompanySummary
-    var projects: [Project]
-    var tasks: [TaskItem]
-    var activity: [ActivityEvent]
-
-    static let placeholder = DataSnapshot(
-        summary: .placeholder,
-        projects: SampleData.projects,
-        tasks: SampleData.tasks,
-        activity: SampleData.activity
-    )
-}
-
-actor LocalPersistence {
-    private let url: URL
-
-    init() {
-        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        url = directory?.appending(path: "project-pulse.json") ?? URL(fileURLWithPath: "/tmp/project-pulse.json")
-    }
-
-    func loadSnapshot() async throws -> DataSnapshot {
-        if FileManager.default.fileExists(atPath: url.path()) {
-            let data = try Data(contentsOf: url)
-            return try JSONDecoder().decode(DataSnapshot.self, from: data)
-        } else {
-            let snapshot = DataSnapshot.placeholder
-            try persist(snapshot: snapshot)
-            return snapshot
-        }
-    }
-
-    func persist(tasks: [TaskItem]) async {
-        await persistPartial { snapshot in snapshot.tasks = tasks }
-    }
-
-    func persist(activity: [ActivityEvent]) async {
-        await persistPartial { snapshot in snapshot.activity = activity }
-    }
-
-    private func persist(snapshot: DataSnapshot) throws {
-        let data = try JSONEncoder().encode(snapshot)
-        try data.write(to: url, options: .atomic)
-    }
-
-    private func persistPartial(_ update: @escaping (inout DataSnapshot) -> Void) async {
-        do {
-            var snapshot = try await loadSnapshot()
-            update(&snapshot)
-            try persist(snapshot: snapshot)
-        } catch {
-            print("Failed to persist snapshot: \(error)")
-        }
-    }
-}
-
-// MARK: - Models
-struct CompanySummary: Codable, Equatable {
-    var activeProjects: Int
-    var overdueTasks: Int
-    var satisfaction: Double
-    var revenueByMonth: [MonthlyRevenue]
-
-    struct MonthlyRevenue: Codable, Identifiable, Equatable {
-        var id: UUID = .init()
-        var month: String
-        var value: Double
-    }
-
-    static let placeholder = CompanySummary(
-        activeProjects: 4,
-        overdueTasks: 2,
-        satisfaction: 0.86,
-        revenueByMonth: [
-            MonthlyRevenue(month: "Jan", value: 120_000),
-            MonthlyRevenue(month: "Feb", value: 118_500),
-            MonthlyRevenue(month: "Mar", value: 134_250),
-            MonthlyRevenue(month: "Apr", value: 142_100),
-            MonthlyRevenue(month: "May", value: 156_750)
-        ]
-    )
-}
-
-struct Project: Codable, Identifiable, Hashable {
-    enum Status: String, Codable, CaseIterable, Identifiable {
-        case discovery, planning, inProgress, blocked, complete
-
-        var id: String { rawValue }
-
-        var tint: Color {
-            switch self {
-            case .discovery: return .mint
-            case .planning: return .indigo
-            case .inProgress: return .blue
-            case .blocked: return .orange
-            case .complete: return .green
-            }
-        }
-
-        var label: String {
-            switch self {
-            case .discovery: return "Discovery"
-            case .planning: return "Planning"
-            case .inProgress: return "In Progress"
-            case .blocked: return "Blocked"
-            case .complete: return "Complete"
-            }
-        }
-    }
-
-    var id: UUID
-    var name: String
-    var summary: String
-    var status: Status
-    var updatedAt: Date
-    var owner: TeamMember
-}
-
-struct TeamMember: Codable, Identifiable, Hashable {
-    var id: UUID
-    var name: String
-    var role: String
-}
-
-struct TaskItem: Codable, Identifiable, Hashable {
-    var id: UUID
-    var title: String
-    var dueDate: Date
-    var isCompleted: Bool
-    var project: ProjectReference
-
-    struct ProjectReference: Codable, Hashable {
-        var id: UUID
-        var name: String
-    }
-}
-
-struct ActivityEvent: Codable, Identifiable, Hashable {
-    enum Kind: Codable, Hashable {
-        case milestone(String)
-        case note(Note)
-        case task(TaskItem)
-
-        enum CodingKeys: CodingKey { case milestone, note, task }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            if let milestone = try container.decodeIfPresent(String.self, forKey: .milestone) {
-                self = .milestone(milestone)
-            } else if let note = try container.decodeIfPresent(Note.self, forKey: .note) {
-                self = .note(note)
-            } else if let task = try container.decodeIfPresent(TaskItem.self, forKey: .task) {
-                self = .task(task)
-            } else {
-                throw DecodingError.dataCorrupted(.init(codingPath: container.codingPath, debugDescription: "Unknown ActivityEvent kind"))
-            }
-        }
-
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-            case .milestone(let value):
-                try container.encode(value, forKey: .milestone)
-            case .note(let note):
-                try container.encode(note, forKey: .note)
-            case .task(let task):
-                try container.encode(task, forKey: .task)
-            }
-        }
-    }
-
-    struct Note: Codable, Hashable {
-        var author: TeamMember
-        var message: String
-    }
-
-    var id: UUID
-    var title: String
-    var timestamp: Date
-    var kind: Kind
-}
-
-// MARK: - Views
+// MARK: - Root scene
 @available(iOS 16.0, macOS 13.0, *)
-struct DashboardContainerView: View {
-    @EnvironmentObject private var data: DataController
-    @State private var isRefreshing = false
-    @State private var showingQuickNote = false
-    @State private var quickNote = ""
+struct BridgeAIDashboardScene: View {
+    @StateObject private var viewModel = DashboardViewModel.sample()
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    SummaryHeader(summary: data.summary)
-                    RevenueChart(revenue: data.summary.revenueByMonth)
-                    ProjectsSection(projects: data.projects)
-                    TaskSection(tasks: data.tasks, toggleTask: data.toggleTask)
-                    ActivityFeedSection(activity: data.activity)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 32)
-            }
-            .navigationTitle("Project Pulse")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingQuickNote = true
-                    } label: {
-                        Label("Quick Note", systemImage: "square.and.pencil")
+        HStack(spacing: 0) {
+            SidebarView(items: viewModel.sidebarItems, hotlines: viewModel.hotlines)
+                .frame(width: 260)
+                .background(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 6, y: 0)
+
+            Divider()
+                .opacity(0.0)
+
+            DashboardContentView(viewModel: viewModel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+        }
+        .ignoresSafeArea(.all, edges: .vertical)
+    }
+}
+
+// MARK: - Sidebar
+@available(iOS 16.0, macOS 13.0, *)
+struct SidebarView: View {
+    let items: [SidebarItem]
+    let hotlines: [Hotline]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.blue.opacity(0.1))
+                        .frame(width: 42, height: 42)
+                        .overlay(
+                            Image(systemName: "shield.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Color.blue)
+                        )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("BridgeAI")
+                            .font(.title3.weight(.semibold))
+                        Text("Every second matters")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if isRefreshing {
-                        ProgressView()
-                    } else {
-                        Button {
-                            Task { await refresh() }
-                        } label: {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+
+                Divider()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(items) { item in
+                    SidebarRow(item: item)
+                }
+            }
+
+            Spacer(minLength: 16)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Emergency Hotlines")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(hotlines) { hotline in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(hotline.label)
+                                    .font(.footnote.weight(.medium))
+                                Text(hotline.number)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "phone.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.blue)
                         }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color(.systemGray6))
+                        )
                     }
                 }
             }
-            .sheet(isPresented: $showingQuickNote) {
-                QuickNoteSheet(noteText: $quickNote) { message in
-                    let author = SampleData.team.randomElement() ?? SampleData.team[0]
-                    let note = ActivityEvent.Note(author: author, message: message)
-                    data.addQuickNote(note)
-                }
-            }
         }
-    }
-
-    private func refresh() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        await data.refresh()
-        isRefreshing = false
+        .padding(.vertical, 32)
+        .padding(.horizontal, 20)
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct SummaryHeader: View {
-    let summary: CompanySummary
+struct SidebarRow: View {
+    let item: SidebarItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Today")
-                .font(.title3.bold())
-                .foregroundStyle(.secondary)
-            HStack(spacing: 16) {
-                MetricTile(title: "Active Projects", value: "\(summary.activeProjects)", systemImage: "folder.fill")
-                MetricTile(title: "Overdue Tasks", value: "\(summary.overdueTasks)", systemImage: "exclamationmark.triangle.fill", tint: .orange)
-                MetricTile(title: "Satisfaction", value: summary.satisfaction.percentDisplay, systemImage: "hand.thumbsup.fill", tint: .green)
-            }
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct MetricTile: View {
-    var title: String
-    var value: String
-    var systemImage: String
-    var tint: Color = .accentColor
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.largeTitle.bold())
-                .foregroundStyle(tint)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(20)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct RevenueChart: View {
-    let revenue: [CompanySummary.MonthlyRevenue]
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("Revenue")
-                .font(.title2.bold())
-            Chart(revenue) { item in
-                BarMark(
-                    x: .value("Month", item.month),
-                    y: .value("Revenue", item.value)
+        HStack(spacing: 12) {
+            Image(systemName: item.icon)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 26, height: 26)
+                .foregroundStyle(item.isActive ? Color.white : Color.blue)
+                .background(
+                    Circle()
+                        .fill(item.isActive ? Color.blue : Color.blue.opacity(0.12))
                 )
-                .foregroundStyle(.blue.gradient)
-            }
-            .frame(height: 220)
+
+            Text(item.title)
+                .font(.system(size: 16, weight: item.isActive ? .semibold : .regular))
+                .foregroundStyle(item.isActive ? .primary : .secondary)
+
+            Spacer()
         }
-        .padding(20)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(item.isActive ? Color.blue.opacity(0.12) : Color.clear)
+        )
     }
 }
 
+// MARK: - Main dashboard content
 @available(iOS 16.0, macOS 13.0, *)
-struct ProjectsSection: View {
-    let projects: [Project]
+struct DashboardContentView: View {
+    @ObservedObject var viewModel: DashboardViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Projects")
-                .font(.title2.bold())
-            ForEach(projects) { project in
-                NavigationLink(value: project) {
-                    ProjectCard(project: project)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                HeaderView(user: viewModel.user, readiness: viewModel.readiness)
+
+                QuickActionsSection(actions: viewModel.quickActions)
+
+                SafetyStatusSection(metrics: viewModel.safetyMetrics)
+
+                VStack(spacing: 20) {
+                    RecentActivityCard(activity: viewModel.recentActivity)
+                    SafetyTipCard(tip: viewModel.dailyTip)
                 }
             }
-        }
-        .navigationDestination(for: Project.self) { project in
-            ProjectDetailView(project: project)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 36)
         }
     }
 }
 
+// MARK: - Header + readiness
 @available(iOS 16.0, macOS 13.0, *)
-struct ProjectCard: View {
-    let project: Project
+struct HeaderView: View {
+    let user: DashboardUser
+    let readiness: EmergencyReadiness
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(project.name)
-                    .font(.headline)
-                Spacer()
-                StatusBadge(status: project.status)
-            }
-            Text(project.summary)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            HStack {
-                Label(project.owner.name, systemImage: "person.fill")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(project.updatedAt, format: .relative(presentation: .named))
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Welcome to \(user.displayName)")
+                    .font(.system(size: 34, weight: .bold))
+                Text("Your intelligent safety companion, ready when you need it most")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-        }
-        .padding(20)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
 
-@available(iOS 16.0, macOS 13.0, *)
-struct StatusBadge: View {
-    let status: Project.Status
-
-    var body: some View {
-        Text(status.label.uppercased())
-            .font(.caption.bold())
-            .padding(.vertical, 6)
-            .padding(.horizontal, 12)
-            .background(status.tint.opacity(0.15))
-            .foregroundStyle(status.tint)
-            .clipShape(Capsule())
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct ProjectDetailView: View {
-    let project: Project
-
-    var body: some View {
-        List {
-            Section("Summary") {
-                Text(project.summary)
-            }
-            Section("Owner") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(project.owner.name).font(.headline)
-                    Text(project.owner.role).foregroundStyle(.secondary)
-                }
-            }
-            Section("Status") {
-                StatusBadge(status: project.status)
-            }
-        }
-        .navigationTitle(project.name)
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct TaskSection: View {
-    let tasks: [TaskItem]
-    var toggleTask: (TaskItem) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Upcoming Tasks")
-                .font(.title2.bold())
-            ForEach(tasks) { task in
-                TaskRow(task: task) { toggleTask(task) }
-            }
+            EmergencyReadinessCard(readiness: readiness)
         }
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct TaskRow: View {
-    let task: TaskItem
-    var onToggle: () -> Void
+struct EmergencyReadinessCard: View {
+    let readiness: EmergencyReadiness
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(spacing: 16) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? .green : .secondary)
-                    .font(.title3)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Emergency Readiness")
                         .font(.headline)
-                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                    Text("Due \(task.dueDate, style: .date) • \(task.project.name)")
+                    Text(readiness.description)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text(readiness.scoreText)
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(readiness.accent)
+            }
+
+            ProgressView(value: readiness.score)
+                .tint(readiness.accent)
+                .scaleEffect(x: 1, y: 1.4, anchor: .center)
+
+            Text(readiness.statusMessage)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(readiness.accent)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(readiness.accent.opacity(0.1))
+                )
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 8)
+        )
+    }
+}
+
+// MARK: - Quick actions
+@available(iOS 16.0, macOS 13.0, *)
+struct QuickActionsSection: View {
+    let actions: [QuickAction]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Quick Actions")
+                .font(.title3.weight(.semibold))
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: 3), spacing: 18) {
+                ForEach(actions) { action in
+                    QuickActionCard(action: action)
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct QuickActionCard: View {
+    let action: QuickAction
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(action.title)
+                        .font(.headline)
+                    Text(action.subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
+
+            Spacer(minLength: 4)
+
+            HStack(spacing: 8) {
+                Text(action.ctaTitle)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(action.tint)
+                Image(systemName: "arrow.up.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(action.tint)
+            }
+            .padding(.top, 4)
         }
-        .buttonStyle(.plain)
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(action.tint.opacity(0.25), lineWidth: action.isPrimary ? 2 : 1)
+        )
     }
 }
 
+// MARK: - Safety status
 @available(iOS 16.0, macOS 13.0, *)
-struct ActivityFeedSection: View {
-    let activity: [ActivityEvent]
+struct SafetyStatusSection: View {
+    let metrics: [SafetyMetric]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Activity")
-                .font(.title2.bold())
-            ForEach(activity) { event in
-                ActivityRow(event: event)
+            Text("Your Safety Status")
+                .font(.title3.weight(.semibold))
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 4), spacing: 16) {
+                ForEach(metrics) { metric in
+                    SafetyMetricCard(metric: metric)
+                }
             }
         }
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct ActivityRow: View {
-    let event: ActivityEvent
+struct SafetyMetricCard: View {
+    let metric: SafetyMetric
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(event.title).font(.headline)
-                Spacer()
-                Text(event.timestamp, format: .relative(presentation: .numeric))
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(metric.title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(metric.completed)")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(metric.accent)
+                Text("/ \(metric.total)")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            switch event.kind {
-            case .milestone(let message):
-                Label(message, systemImage: "flag.fill")
-                    .foregroundStyle(.blue)
-            case .note(let note):
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(note.message)
-                    Text("— \(note.author.name)")
-                        .font(.caption)
+
+            Spacer(minLength: 8)
+
+            Button(metric.actionLabel) {}
+                .buttonStyle(PlainButtonStyle())
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(metric.accent)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(metric.accent.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 6)
+    }
+}
+
+// MARK: - Activity + safety tip
+@available(iOS 16.0, macOS 13.0, *)
+struct RecentActivityCard: View {
+    let activity: RecentActivity
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Recent Activity")
+                .font(.title3.weight(.semibold))
+
+            HStack(alignment: .center, spacing: 20) {
+                Circle()
+                    .fill(activity.accent.opacity(0.12))
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: activity.icon)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(activity.accent)
+                    )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(activity.title)
+                        .font(.headline)
+                    Text(activity.message)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-            case .task(let task):
-                Label("Task \(task.isCompleted ? "completed" : "updated"): \(task.title)", systemImage: "checkmark.seal")
-                    .foregroundStyle(task.isCompleted ? .green : .secondary)
+
+                Spacer()
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 8)
+        )
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct QuickNoteSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Binding var noteText: String
-    var onSubmit: (String) -> Void
+struct SafetyTipCard: View {
+    let tip: SafetyTip
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("New note") {
-                    TextEditor(text: $noteText)
-                        .frame(minHeight: 120)
-                }
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Safety Tip of the Day")
+                .font(.title3.weight(.semibold))
+
+            Text(tip.message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Button(action: {}) {
+                Text(tip.ctaTitle)
+                    .font(.footnote.weight(.semibold))
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.blue.opacity(0.12))
+                    )
             }
-            .navigationTitle("Quick Note")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { return }
-                        onSubmit(trimmed)
-                        noteText = ""
-                        dismiss()
-                    }
-                }
-            }
+            .buttonStyle(.plain)
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 8)
+        )
     }
 }
 
-// MARK: - Sample data
-enum SampleData {
-    static let team: [TeamMember] = [
-        TeamMember(id: UUID(), name: "Samira Lee", role: "Product Manager"),
-        TeamMember(id: UUID(), name: "Nikhil Rao", role: "iOS Engineer"),
-        TeamMember(id: UUID(), name: "Adriana Flores", role: "Design Lead"),
-        TeamMember(id: UUID(), name: "Liam Chen", role: "Backend Engineer")
-    ]
+// MARK: - View model & models
+@available(iOS 16.0, macOS 13.0, *)
+final class DashboardViewModel: ObservableObject {
+    @Published var user: DashboardUser
+    @Published var readiness: EmergencyReadiness
+    @Published var quickActions: [QuickAction]
+    @Published var safetyMetrics: [SafetyMetric]
+    @Published var recentActivity: RecentActivity
+    @Published var dailyTip: SafetyTip
+    let sidebarItems: [SidebarItem]
+    let hotlines: [Hotline]
 
-    static let projects: [Project] = [
-        Project(
-            id: UUID(),
-            name: "Discovery Hub",
-            summary: "Next-generation research workflow for distributed teams.",
-            status: .inProgress,
-            updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
-            owner: team[0]
-        ),
-        Project(
-            id: UUID(),
-            name: "Pulse Analytics",
-            summary: "Unified dashboard with predictive health indicators.",
-            status: .planning,
-            updatedAt: Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now,
-            owner: team[1]
-        ),
-        Project(
-            id: UUID(),
-            name: "LaunchPad",
-            summary: "Automation toolkit for onboarding enterprise customers.",
-            status: .discovery,
-            updatedAt: Calendar.current.date(byAdding: .day, value: -5, to: .now) ?? .now,
-            owner: team[2]
-        )
-    ]
-
-    static let tasks: [TaskItem] = [
-        TaskItem(
-            id: UUID(),
-            title: "Finalize analytics schema",
-            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now,
-            isCompleted: false,
-            project: .init(id: projects[1].id, name: projects[1].name)
-        ),
-        TaskItem(
-            id: UUID(),
-            title: "Storyboard onboarding flow",
-            dueDate: Calendar.current.date(byAdding: .day, value: 2, to: .now) ?? .now,
-            isCompleted: false,
-            project: .init(id: projects[2].id, name: projects[2].name)
-        ),
-        TaskItem(
-            id: UUID(),
-            title: "Review discovery interview notes",
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
-            isCompleted: true,
-            project: .init(id: projects[0].id, name: projects[0].name)
-        )
-    ]
-
-    static let activity: [ActivityEvent] = [
-        ActivityEvent(
-            id: UUID(),
-            title: "LaunchPad milestone reached",
-            timestamp: Calendar.current.date(byAdding: .hour, value: -2, to: .now) ?? .now,
-            kind: .milestone("Prototype approved by stakeholders")
-        ),
-        ActivityEvent(
-            id: UUID(),
-            title: "Discovery interview summary",
-            timestamp: Calendar.current.date(byAdding: .hour, value: -5, to: .now) ?? .now,
-            kind: .note(.init(author: team[0], message: "Key insight: teams need faster approvals."))
-        ),
-        ActivityEvent(
-            id: UUID(),
-            title: "Task completed",
-            timestamp: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
-            kind: .task(tasks[2])
-        )
-    ]
-}
-
-// MARK: - Formatters
-private enum Formatters {
-    static let percent: Foundation.NumberFormatter = {
-        let formatter = Foundation.NumberFormatter()
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 0
-        return formatter
-    }()
-}
-
-private extension Double {
-    var percentDisplay: String {
-        Formatters.percent.string(from: NSNumber(value: self)) ?? "--"
+    init(
+        user: DashboardUser,
+        readiness: EmergencyReadiness,
+        quickActions: [QuickAction],
+        safetyMetrics: [SafetyMetric],
+        recentActivity: RecentActivity,
+        dailyTip: SafetyTip,
+        sidebarItems: [SidebarItem],
+        hotlines: [Hotline]
+    ) {
+        self.user = user
+        self.readiness = readiness
+        self.quickActions = quickActions
+        self.safetyMetrics = safetyMetrics
+        self.recentActivity = recentActivity
+        self.dailyTip = dailyTip
+        self.sidebarItems = sidebarItems
+        self.hotlines = hotlines
     }
+
+    static func sample() -> DashboardViewModel {
+        DashboardViewModel(
+            user: DashboardUser(displayName: "BridgeAI"),
+            readiness: EmergencyReadiness(
+                score: 0.0,
+                description: "Review personalized levels based on contacts, supplies, and emergency scenario",
+                statusMessage: "Needs Work",
+                accent: Color.red
+            ),
+            quickActions: [
+                QuickAction(
+                    title: "AI Assistant",
+                    subtitle: "Get immediate guidance for any emergency",
+                    ctaTitle: "Access Now",
+                    tint: Color.blue
+                ),
+                QuickAction(
+                    title: "Emergency SOS",
+                    subtitle: "One-tap access to emergency services and contacts",
+                    ctaTitle: "Access Now",
+                    tint: Color.red,
+                    isPrimary: true
+                ),
+                QuickAction(
+                    title: "Preparedness Plans",
+                    subtitle: "Review disaster plans and checklists for your household",
+                    ctaTitle: "Access Now",
+                    tint: Color.indigo
+                )
+            ],
+            safetyMetrics: [
+                SafetyMetric(title: "Emergency Contacts", completed: 0, total: 3, accent: Color.blue, actionLabel: "Manage"),
+                SafetyMetric(title: "Supply Readiness", completed: 0, total: 3, accent: Color.orange, actionLabel: "Manage"),
+                SafetyMetric(title: "Courses Completed", completed: 0, total: 4, accent: Color.green, actionLabel: "Manage"),
+                SafetyMetric(title: "Drill Practices", completed: 0, total: 2, accent: Color.purple, actionLabel: "Review")
+            ],
+            recentActivity: RecentActivity(
+                title: "All Clear",
+                message: "No recent emergency activity. Stay prepared!",
+                icon: "checkmark.seal.fill",
+                accent: Color.green
+            ),
+            dailyTip: SafetyTip(
+                message: "Keep your emergency contacts updated. Make sure all contact information is current, and share your notification settings regularly to stay connected.",
+                ctaTitle: "Review Contacts"
+            ),
+            sidebarItems: [
+                SidebarItem(title: "Dashboard", icon: "house.fill", isActive: true),
+                SidebarItem(title: "AI Assistant", icon: "wand.and.sparkles", isActive: false),
+                SidebarItem(title: "Emergency", icon: "bell.fill", isActive: false),
+                SidebarItem(title: "Preparedness", icon: "shield.lefthalf.fill", isActive: false),
+                SidebarItem(title: "Courses", icon: "book.closed.fill", isActive: false),
+                SidebarItem(title: "Contacts", icon: "person.2.fill", isActive: false)
+            ],
+            hotlines: [
+                Hotline(label: "911", number: "Emergency"),
+                Hotline(label: "988", number: "Crisis Lifeline"),
+                Hotline(label: "311", number: "City Services")
+            ]
+        )
+    }
+}
+
+struct DashboardUser {
+    var displayName: String
+}
+
+struct EmergencyReadiness {
+    var score: Double // 0.0 – 1.0
+    var description: String
+    var statusMessage: String
+    var accent: Color
+
+    var scoreText: String {
+        "\(Int(score * 100))%"
+    }
+}
+
+struct QuickAction: Identifiable {
+    var id: UUID = .init()
+    var title: String
+    var subtitle: String
+    var ctaTitle: String
+    var tint: Color
+    var isPrimary: Bool = false
+}
+
+struct SafetyMetric: Identifiable {
+    var id: UUID = .init()
+    var title: String
+    var completed: Int
+    var total: Int
+    var accent: Color
+    var actionLabel: String
+}
+
+struct RecentActivity {
+    var title: String
+    var message: String
+    var icon: String
+    var accent: Color
+}
+
+struct SafetyTip {
+    var message: String
+    var ctaTitle: String
+}
+
+struct SidebarItem: Identifiable {
+    var id: UUID = .init()
+    var title: String
+    var icon: String
+    var isActive: Bool
+}
+
+struct Hotline: Identifiable {
+    var id: UUID = .init()
+    var label: String
+    var number: String
 }
 
 // MARK: - Preview
 @available(iOS 16.0, macOS 13.0, *)
-struct DashboardContainerView_Previews: PreviewProvider {
+struct BridgeAIDashboardScene_Previews: PreviewProvider {
     static var previews: some View {
-        DashboardContainerView()
-            .environmentObject({
-                let controller = DataController()
-                controller.apply(snapshot: .placeholder)
-                return controller
-            }())
+        BridgeAIDashboardScene()
+            .previewDisplayName("BridgeAI Dashboard")
     }
 }
