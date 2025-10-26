@@ -1668,6 +1668,8 @@ enum BridgeAITheme {
     static let textSecondary = Color(red: 0.296, green: 0.318, blue: 0.357)
     static let textMuted = Color(red: 0.467, green: 0.47, blue: 0.472)
     static let surface = Color.white.opacity(0.82)
+    static let surfacePrimary = Color(red: 1.0, green: 0.991, blue: 0.94)
+    static let surfaceSecondary = Color(red: 0.953, green: 0.964, blue: 0.968)
 
     static let primaryGradient = LinearGradient(
         colors: [primary, primary.opacity(0.75)],
