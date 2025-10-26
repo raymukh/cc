@@ -1388,7 +1388,7 @@ final class AssistiveModel: ObservableObject {
                     ]
                 ),
                 CrisisScenario(
-                    title: "Shelter during a tornado warning",
+                    title: "tornado warning",
                     summary: "Secure a safe room, shield heads, and communicate status updates.",
                     duration: "5 min",
                     actionLabel: "Open shelter checklist",
