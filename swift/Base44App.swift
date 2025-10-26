@@ -1273,12 +1273,20 @@ struct CrisisScenario: Identifiable {
     var isExpanded: Bool = false
 }
 
-struct SupplyItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let detail: String
+struct SupplyItem: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+    var detail: String
     var isOwned: Bool
     var reminderDate: String?
+
+    init(id: UUID = UUID(), name: String, detail: String, isOwned: Bool, reminderDate: String?) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.isOwned = isOwned
+        self.reminderDate = reminderDate
+    }
 }
 
 struct CalmSettings {
@@ -1290,16 +1298,24 @@ struct CalmSettings {
 
 @available(iOS 16.0, macOS 13.0, *)
 final class AssistiveModel: ObservableObject {
+    private let supplyStore = SupplyItemStore()
+
     @Published var overview: AssistiveOverview
     @Published var scenarios: [CrisisScenario]
-    @Published var supplyItems: [SupplyItem]
+    @Published var supplyItems: [SupplyItem] {
+        didSet {
+            supplyStore.save(supplyItems)
+        }
+    }
     @Published var calmSettings: CalmSettings
 
     init(overview: AssistiveOverview, scenarios: [CrisisScenario], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
         self.overview = overview
         self.scenarios = scenarios
-        self.supplyItems = supplyItems
         self.calmSettings = calmSettings
+
+        let persistedItems = supplyStore.load(defaultItems: supplyItems)
+        self._supplyItems = Published(initialValue: persistedItems)
     }
 
     static func sample() -> AssistiveModel {
@@ -1374,6 +1390,43 @@ final class AssistiveModel: ObservableObject {
             ],
             calmSettings: CalmSettings(voiceGuidance: true, hapticSupport: true, highContrast: false, breathingPace: 6)
         )
+    }
+}
+
+final class SupplyItemStore {
+    private enum Constants {
+        static let storageKey = "bridgeai.supplyItems"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load(defaultItems: [SupplyItem]) -> [SupplyItem] {
+        guard let data = defaults.data(forKey: Constants.storageKey) else {
+            save(defaultItems)
+            return defaultItems
+        }
+
+        do {
+            return try JSONDecoder().decode([SupplyItem].self, from: data)
+        } catch {
+            save(defaultItems)
+            return defaultItems
+        }
+    }
+
+    func save(_ items: [SupplyItem]) {
+        do {
+            let data = try JSONEncoder().encode(items)
+            defaults.set(data, forKey: Constants.storageKey)
+        } catch {
+#if DEBUG
+            print("Failed to persist supply items: \(error)")
+#endif
+        }
     }
 }
 
