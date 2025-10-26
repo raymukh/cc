@@ -237,49 +237,53 @@ struct DisasterPlanSection: View {
     var body: some View {
         BridgeAISection(title: "Disaster Readiness", subtitle: "Before, during, and after playbooks with live inputs.") {
             GeometryReader { proxy in
-                let cardWidth = max(proxy.size.width, 280)
+                let arrowSpace: CGFloat = 52
+                let spacing: CGFloat = 16
+                let availableWidth = proxy.size.width
+                let cardWidth = max(availableWidth - (arrowSpace * 2) - (spacing * 2), 280)
 
-                ZStack {
-                    if let plan = currentPlan {
-                        DisasterPlanCard(plan: plan)
+                HStack(spacing: spacing) {
+                    slideshowArrow(direction: .previous) {
+                        shiftPlan(by: -1)
+                    }
+                    .frame(width: arrowSpace)
+
+                    ZStack {
+                        if let plan = currentPlan {
+                            DisasterPlanCard(plan: plan)
+                                .frame(width: cardWidth)
+                                .animation(.easeInOut(duration: 0.3), value: currentIndex)
+                        } else {
+                            VStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.title2)
+                                    .foregroundStyle(BridgeAITheme.primary)
+
+                                Text("No Plans Available")
+                                    .font(.headline)
+                                    .foregroundStyle(BridgeAITheme.textPrimary)
+
+                                Text("Add readiness guides to see them here.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(BridgeAITheme.textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
                             .frame(width: cardWidth)
-                            .animation(.easeInOut(duration: 0.3), value: currentIndex)
-                    } else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.title2)
-                                .foregroundStyle(BridgeAITheme.primary)
-
-                            Text("No Plans Available")
-                                .font(.headline)
-                                .foregroundStyle(BridgeAITheme.textPrimary)
-
-                            Text("Add readiness guides to see them here.")
-                                .font(.subheadline)
-                                .foregroundStyle(BridgeAITheme.textSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(width: cardWidth)
-                        .padding(32)
-                        .background(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .fill(BridgeAITheme.surfacePrimary)
-                        )
-                    }
-
-                    HStack {
-                        slideshowArrow(direction: .previous) {
-                            shiftPlan(by: -1)
-                        }
-
-                        Spacer()
-
-                        slideshowArrow(direction: .next) {
-                            shiftPlan(by: 1)
+                            .padding(32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .fill(BridgeAITheme.surfacePrimary)
+                            )
                         }
                     }
-                    .padding(.horizontal, 8)
+                    .frame(width: cardWidth, height: proxy.size.height)
+
+                    slideshowArrow(direction: .next) {
+                        shiftPlan(by: 1)
+                    }
+                    .frame(width: arrowSpace)
                 }
+                .frame(width: availableWidth, height: proxy.size.height)
             }
             .frame(height: 260)
         }
@@ -1318,13 +1322,13 @@ final class AssistiveModel: ObservableObject {
             ],
             disasterPlans: [
                 DisasterPlan(
-                    name: "Tornado shelter plan",
+                    name: "Tornado shelter prep",
                     alertLevel: "Warning", alertColor: BridgeAITheme.accent,
                     dataSource: "NOAA feed",
                     checklist: [
-                        "Move to the lowest interior room away from windows.",
-                        "Put on helmets or head protection for all members.",
-                        "Send automated status to your trusted contacts."
+                        "Move to an interior room away from windows.",
+                        "Use helmets or head protection for everyone.",
+                        "Ping trusted contacts with a quick status."
                     ]
                 ),
                 DisasterPlan(
@@ -1332,9 +1336,9 @@ final class AssistiveModel: ObservableObject {
                     alertLevel: "Watch", alertColor: BridgeAITheme.primary,
                     dataSource: "FEMA alerts",
                     checklist: [
-                        "Seal vents, close windows, and keep go-bag by the door.",
-                        "Load evacuation route with live traffic from DOT.",
-                        "Enable smoke trigger for indoor air quality monitor."
+                        "Seal vents, close windows, and stage the go-bag.",
+                        "Load evac route with live traffic from DOT.",
+                        "Enable smoke trigger for air quality monitor."
                     ]
                 ),
                 DisasterPlan(
@@ -1343,8 +1347,8 @@ final class AssistiveModel: ObservableObject {
                     dataSource: "USGS updates",
                     checklist: [
                         "Check gas, water, and electrical lines for damage.",
-                        "Photograph structural changes for insurance.",
-                        "Locate community shelters and register arrival."
+                        "Photograph structural changes for claims.",
+                        "Locate nearby shelters and register arrival."
                     ]
                 ),
                 DisasterPlan(
@@ -1352,8 +1356,8 @@ final class AssistiveModel: ObservableObject {
                     alertLevel: "Monitor", alertColor: BridgeAITheme.textSecondary,
                     dataSource: "Local utility",
                     checklist: [
-                        "Track perishable food temperature every two hours.",
-                        "Rotate battery packs and maintain device charge.",
+                        "Track fridge temperature every two hours.",
+                        "Rotate battery packs and keep them charged.",
                         "Share location heartbeat every 30 minutes."
                     ]
                 )
