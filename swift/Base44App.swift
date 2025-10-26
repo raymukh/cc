@@ -3,17 +3,17 @@ import SwiftUI
 // MARK: - Entry point
 @available(iOS 16.0, macOS 13.0, *)
 @main
-struct BridgeAIApp: App {
+struct BridgeAIClientApp: App {
     var body: some Scene {
         WindowGroup {
-            BridgeAIDashboardScene()
+            BridgeAIDashboardView()
         }
     }
 }
 
 // MARK: - Root scene
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAIDashboardScene: View {
+struct BridgeAIDashboardView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var model = BridgeAIDashboardModel.sample()
     @State private var showSupportSheet = false
@@ -22,7 +22,7 @@ struct BridgeAIDashboardScene: View {
         horizontalSizeClass == .compact
     }
 
-    private var layout: DashboardLayout {
+    private var layout: BridgeAIDashboardLayout {
         isCompact ? .compact : .regular
     }
 
@@ -70,7 +70,7 @@ struct BridgeAIDashboardScene: View {
 }
 
 // MARK: - Layout configuration
-struct DashboardLayout {
+struct BridgeAIDashboardLayout {
     let isCompact: Bool
     let horizontalPadding: CGFloat
     let verticalPadding: CGFloat
@@ -78,7 +78,7 @@ struct DashboardLayout {
     let highlightSpacing: CGFloat
     let highlightColumns: [GridItem]
 
-    static let compact = DashboardLayout(
+    static let compact = BridgeAIDashboardLayout(
         isCompact: true,
         horizontalPadding: 20,
         verticalPadding: 24,
@@ -89,7 +89,7 @@ struct DashboardLayout {
         ]
     )
 
-    static let regular = DashboardLayout(
+    static let regular = BridgeAIDashboardLayout(
         isCompact: false,
         horizontalPadding: 36,
         verticalPadding: 40,
@@ -207,7 +207,7 @@ struct SidebarPanel: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct DashboardScrollView: View {
     @ObservedObject var model: BridgeAIDashboardModel
-    let layout: DashboardLayout
+    let layout: BridgeAIDashboardLayout
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -236,7 +236,7 @@ struct DashboardScrollView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct HeroBannerView: View {
     let overview: BridgeAIOverview
-    let layout: DashboardLayout
+    let layout: BridgeAIDashboardLayout
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -311,7 +311,7 @@ struct HeroBannerView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct MissionHighlightsView: View {
     let highlights: [MissionHighlight]
-    let layout: DashboardLayout
+    let layout: BridgeAIDashboardLayout
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -367,7 +367,7 @@ struct HighlightCard: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct CapabilityGroupSection: View {
     let group: CapabilityGroup
-    let layout: DashboardLayout
+    let layout: BridgeAIDashboardLayout
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -439,7 +439,7 @@ struct CapabilityGroupSection: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct CapabilityFeatureRow: View {
     let feature: CapabilityFeature
-    let accent: GradientSwatch
+    let accent: BridgeAIGradientSwatch
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -469,7 +469,7 @@ struct CapabilityFeatureRow: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct CoursesShowcaseView: View {
     let courses: [CourseModule]
-    let layout: DashboardLayout
+    let layout: BridgeAIDashboardLayout
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -668,25 +668,25 @@ final class BridgeAIDashboardModel: ObservableObject {
                     title: "Nationwide Coverage",
                     detail: "Real-time FEMA and NOAA signals pair with hyperlocal insights so you know what's happening before anyone else.",
                     icon: "antenna.radiowaves.left.and.right",
-                    accent: .init(primary: BridgeAIColors.deepSea, secondary: BridgeAIColors.copper)
+                    accent: .init(primary: BridgeAIColors.deepSea, secondary: BridgeAIColors.copper.primary)
                 ),
                 .init(
                     title: "Trusted Escalation",
                     detail: "BridgeAI escalates quietly or assertively, sharing only the information you've approved with responders and loved ones.",
                     icon: "shield.lefthalf.fill",
-                    accent: .init(primary: BridgeAIColors.cerulean, secondary: BridgeAIColors.lavender)
+                    accent: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.lavender)
                 ),
                 .init(
                     title: "Human-Centered Guidance",
                     detail: "Step-by-step coaching uses plain language, accessibility cues, and calming tone to keep panic low.",
                     icon: "heart.text.square",
-                    accent: .init(primary: BridgeAIColors.copper, secondary: BridgeAIColors.sunriseAccent)
+                    accent: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.sunriseAccent)
                 ),
                 .init(
                     title: "Lifelong Learning",
                     detail: "Interactive lessons and family-friendly drills transform everyday routines into muscle memory for emergencies.",
                     icon: "graduationcap.fill",
-                    accent: .init(primary: BridgeAIColors.moss, secondary: BridgeAIColors.cerulean)
+                    accent: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.cerulean.primary)
                 )
             ],
             capabilityGroups: [
@@ -720,7 +720,7 @@ struct MissionHighlight: Identifiable {
     let title: String
     let detail: String
     let icon: String
-    let accent: GradientSwatch
+    let accent: BridgeAIGradientSwatch
 }
 
 struct CapabilityGroup: Identifiable {
@@ -729,7 +729,7 @@ struct CapabilityGroup: Identifiable {
     let caption: String
     let context: String
     let icon: String
-    let gradient: GradientSwatch
+    let gradient: BridgeAIGradientSwatch
     let features: [CapabilityFeature]
     let cta: CapabilityAction?
 }
@@ -754,7 +754,7 @@ struct CourseModule: Identifiable {
     let duration: String
     let badge: String
     let icon: String
-    let accent: GradientSwatch
+    let accent: BridgeAIGradientSwatch
 
     static let samples: [CourseModule] = [
         CourseModule(
@@ -763,7 +763,7 @@ struct CourseModule: Identifiable {
             duration: "12 min",
             badge: "First Aid Essentials",
             icon: "hands.sparkles",
-            accent: .init(primary: BridgeAIColors.cerulean, secondary: BridgeAIColors.sunriseAccent)
+            accent: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.sunriseAccent)
         ),
         CourseModule(
             title: "Storm Ready Playbook",
@@ -771,7 +771,7 @@ struct CourseModule: Identifiable {
             duration: "9 min",
             badge: "Disaster Readiness",
             icon: "cloud.bolt.rain.fill",
-            accent: .init(primary: BridgeAIColors.copper, secondary: BridgeAIColors.moss)
+            accent: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.moss.primary)
         ),
         CourseModule(
             title: "Family Digital Safety",
@@ -789,26 +789,26 @@ struct SupportResource: Identifiable {
     let label: String
     let detail: String
     let icon: String
-    let tint: GradientSwatch
+    let tint: BridgeAIGradientSwatch
 
     static let samples: [SupportResource] = [
         SupportResource(
             label: "911 Dispatch",
             detail: "Direct emergency services with live GPS and incident notes.",
             icon: "phone.fill",
-            tint: .init(primary: BridgeAIColors.cerulean, secondary: BridgeAIColors.deepSea)
+            tint: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.deepSea)
         ),
         SupportResource(
             label: "National Suicide & Crisis Lifeline",
             detail: "Call or text 988 for confidential emotional support 24/7.",
             icon: "heart.fill",
-            tint: .init(primary: BridgeAIColors.moss, secondary: BridgeAIColors.sunriseAccent)
+            tint: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.sunriseAccent)
         ),
         SupportResource(
             label: "FEMA Alerts",
             detail: "Verified alerts and shelter updates matched to your safe zones.",
             icon: "exclamationmark.triangle.fill",
-            tint: .init(primary: BridgeAIColors.copper, secondary: BridgeAIColors.sunriseAccent)
+            tint: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.sunriseAccent)
         ),
         SupportResource(
             label: "BridgeAI Command Center",
@@ -833,7 +833,7 @@ extension CapabilityGroup {
         caption: "AI coaching when danger is near but time remains.",
         context: "BridgeAI keeps you composed with calm, step-by-step plans tailored to the crisis you're facing.",
         icon: "person.fill.questionmark",
-        gradient: .init(primary: BridgeAIColors.cerulean, secondary: BridgeAIColors.sunriseAccent),
+        gradient: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.sunriseAccent),
         features: [
             .init(
                 title: "Health & Crisis Coach",
@@ -868,7 +868,7 @@ extension CapabilityGroup {
         caption: "Immediate action when seconds decide survival.",
         context: "Whether you can shout for help or can’t make a sound, BridgeAI activates responders without delay.",
         icon: "bolt.fill",
-        gradient: .init(primary: BridgeAIColors.copper, secondary: BridgeAIColors.midnightAccent),
+        gradient: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.midnightAccent),
         features: [
             .init(
                 title: "Assertive Voice Mode",
@@ -903,7 +903,7 @@ extension CapabilityGroup {
         caption: "Precision, privacy, and control for every incident.",
         context: "BridgeAI respects consent while keeping your responders informed until you confirm you're safe.",
         icon: "location.fill.viewfinder",
-        gradient: .init(primary: BridgeAIColors.moss, secondary: BridgeAIColors.deepSea),
+        gradient: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.deepSea),
         features: [
             .init(
                 title: "Smart Escalation",
@@ -970,7 +970,7 @@ extension CapabilityGroup {
 }
 
 // MARK: - Gradient helpers
-struct GradientSwatch {
+struct BridgeAIGradientSwatch {
     let primary: Color
     let secondary: Color
 
@@ -994,45 +994,45 @@ enum BridgeAIColors {
     static let bodySecondary = Color(red: 0.352, green: 0.431, blue: 0.466)
     static let shadow = Color(red: 0.239, green: 0.031, blue: 0.078)
 
-    static let sunrise = GradientSwatch(
+    static let sunrise = BridgeAIGradientSwatch(
         primary: Color(red: 0.082, green: 0.376, blue: 0.478),
         secondary: Color(red: 0.239, green: 0.031, blue: 0.078)
     )
     static let sunriseAccent = Color(red: 0.318, green: 0.553, blue: 0.62)
     static let sunriseHighlight = Color(red: 0.918, green: 0.9, blue: 0.828)
 
-    static let copper = GradientSwatch(
+    static let copper = BridgeAIGradientSwatch(
         primary: Color(red: 0.42, green: 0.11, blue: 0.18),
         secondary: Color(red: 0.27, green: 0.05, blue: 0.11)
     )
-    static let moss = GradientSwatch(
+    static let moss = BridgeAIGradientSwatch(
         primary: Color(red: 0.11, green: 0.45, blue: 0.57),
         secondary: Color(red: 0.07, green: 0.31, blue: 0.43)
     )
-    static let cerulean = GradientSwatch(
+    static let cerulean = BridgeAIGradientSwatch(
         primary: Color(red: 0.15, green: 0.56, blue: 0.69),
         secondary: Color(red: 0.09, green: 0.38, blue: 0.52)
     )
     static let deepSea = Color(red: 0.082, green: 0.376, blue: 0.478)
     static let lavender = Color(red: 0.988, green: 0.956, blue: 0.86)
-    static let midnight = GradientSwatch(
+    static let midnight = BridgeAIGradientSwatch(
         primary: Color(red: 0.2, green: 0.07, blue: 0.12),
         secondary: Color(red: 0.13, green: 0.03, blue: 0.08)
     )
     static let midnightAccent = Color(red: 0.29, green: 0.08, blue: 0.14)
 
-    static func gradient(_ swatch: GradientSwatch) -> LinearGradient {
+    static func gradient(_ swatch: BridgeAIGradientSwatch) -> LinearGradient {
         swatch.gradient()
     }
 }
 
-private extension GradientSwatch {
+private extension BridgeAIGradientSwatch {
     var primaryColor: Color { primary }
 }
 
 private extension Color {
     func gradient(inset: Bool) -> LinearGradient {
-        let swatch = GradientSwatch(primary: self, secondary: self.opacity(0.75))
+        let swatch = BridgeAIGradientSwatch(primary: self, secondary: self.opacity(0.75))
         return swatch.gradient(inset: inset)
     }
 }
