@@ -295,6 +295,7 @@ struct ScenarioStepRow: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct SupplyCartSection: View {
     @Binding var items: [SupplyItem]
+    @State private var isPresentingAddItem = false
 
     var body: some View {
         BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
@@ -315,9 +316,11 @@ struct SupplyCartSection: View {
                                 Text(item.name)
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(BridgeAITheme.textPrimary)
-                                Text(item.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(BridgeAITheme.textSecondary)
+                                if !item.detail.isEmpty {
+                                    Text(item.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(BridgeAITheme.textSecondary)
+                                }
                             }
 
                             Spacer()
@@ -337,7 +340,7 @@ struct SupplyCartSection: View {
                 }
 
                 Button {
-                    // Placeholder for add-item flow
+                    isPresentingAddItem = true
                 } label: {
                     Label("Add supply item", systemImage: "plus")
                         .frame(maxWidth: .infinity)
@@ -345,6 +348,98 @@ struct SupplyCartSection: View {
                 .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
             }
         }
+        .sheet(isPresented: $isPresentingAddItem) {
+            AddSupplyItemSheet { newItem in
+                items.append(newItem)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct AddSupplyItemSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name: String = ""
+    @State private var detail: String = ""
+    @State private var includeExpiryReminder: Bool = true
+    @State private var reminderDate: Date = .now
+
+    var onSave: (SupplyItem) -> Void
+
+    private var reminderFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = .current
+        formatter.dateFormat = "MMM d"
+        return formatter
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Item details") {
+                    TextField("Item name", text: $name)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+
+                    TextField("Notes (optional)", text: $detail, axis: .vertical)
+                        .lineLimit(1...3)
+                }
+
+                Section("Expiry reminder") {
+                    Toggle("Set expiry reminder", isOn: $includeExpiryReminder)
+
+                    if includeExpiryReminder {
+                        DatePicker(
+                            "Expires on",
+                            selection: $reminderDate,
+                            displayedComponents: [.date]
+                        )
+                    }
+                }
+            }
+            .navigationTitle("Add Supply")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", role: .cancel) { dismiss() }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        save()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+#if os(iOS)
+        .presentationDetents([.medium])
+#endif
+    }
+
+    private func save() {
+        var reminderText: String?
+
+        if includeExpiryReminder {
+            reminderText = "Expires \(reminderFormatter.string(from: reminderDate))"
+        }
+
+        let trimmedDetail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let item = SupplyItem(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            detail: trimmedDetail.isEmpty ? "" : trimmedDetail,
+            isOwned: false,
+            reminderDate: reminderText
+        )
+
+        onSave(item)
+        dismiss()
     }
 }
 
