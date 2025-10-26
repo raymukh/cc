@@ -163,21 +163,11 @@ struct AssistiveScenarioSection: View {
             ForEach($scenarios) { $scenario in
                 DisclosureGroup(isExpanded: $scenario.isExpanded) {
                     VStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(scenario.steps.enumerated()), id: \.(offset)) { index, step in
-                            HStack(alignment: .top, spacing: 12) {
-                                Circle()
-                                    .fill(BridgeAITheme.primary.opacity(0.12))
-                                    .frame(width: 28, height: 28)
-                                    .overlay(
-                                        Text("\(index + 1)")
-                                            .font(.footnote.weight(.semibold))
-                                            .foregroundStyle(BridgeAITheme.primary)
-                                    )
-
-                                Text(step)
-                                    .font(.callout)
-                                    .foregroundStyle(BridgeAITheme.textPrimary)
-                            }
+                        ForEach(Array(scenario.steps.indices), id: \.self) { index in
+                            ScenarioStepRow(
+                                stepNumber: index + 1,
+                                text: scenario.steps[index]
+                            )
                         }
 
                         Button(action: {}) {
@@ -212,6 +202,29 @@ struct AssistiveScenarioSection: View {
                 }
                 .disclosureGroupStyle(BridgeAICardDisclosureStyle())
             }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct ScenarioStepRow: View {
+    let stepNumber: Int
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(BridgeAITheme.primary.opacity(0.12))
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Text("\(stepNumber)")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.primary)
+                )
+
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(BridgeAITheme.textPrimary)
         }
     }
 }
