@@ -357,7 +357,7 @@ struct HighlightCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.white)
+                .fill(BridgeAIColors.lavender)
                 .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 16, x: 0, y: 12)
         )
     }
@@ -404,7 +404,7 @@ struct CapabilityGroupSection: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.white)
+                    .fill(BridgeAIColors.lavender)
                     .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 16, x: 0, y: 10)
             )
 
@@ -540,7 +540,7 @@ struct CourseCard: View {
         .frame(width: isCompact ? 240 : 280, height: isCompact ? 200 : 220)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.white)
+                .fill(BridgeAIColors.lavender)
                 .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 14, x: 0, y: 10)
         )
     }
@@ -987,24 +987,39 @@ struct GradientSwatch {
 
 // MARK: - Palette
 enum BridgeAIColors {
-    static let background = Color(red: 0.93, green: 0.95, blue: 0.99)
-    static let surfaceBackground = Color(red: 0.96, green: 0.97, blue: 1.0)
-    static let title = Color(red: 0.12, green: 0.16, blue: 0.28)
-    static let body = Color(red: 0.22, green: 0.28, blue: 0.38)
-    static let bodySecondary = Color(red: 0.4, green: 0.45, blue: 0.54)
-    static let shadow = Color.black
+    static let background = Color(red: 1.0, green: 0.996, blue: 0.918)
+    static let surfaceBackground = Color(red: 0.984, green: 0.976, blue: 0.932)
+    static let title = Color(red: 0.239, green: 0.031, blue: 0.078)
+    static let body = Color(red: 0.169, green: 0.274, blue: 0.317)
+    static let bodySecondary = Color(red: 0.352, green: 0.431, blue: 0.466)
+    static let shadow = Color(red: 0.239, green: 0.031, blue: 0.078)
 
-    static let sunrise = GradientSwatch(primary: Color(red: 0.97, green: 0.44, blue: 0.35), secondary: Color(red: 0.99, green: 0.64, blue: 0.37))
-    static let sunriseAccent = Color(red: 1.0, green: 0.82, blue: 0.51)
-    static let sunriseHighlight = Color(red: 1.0, green: 0.76, blue: 0.54)
+    static let sunrise = GradientSwatch(
+        primary: Color(red: 0.082, green: 0.376, blue: 0.478),
+        secondary: Color(red: 0.239, green: 0.031, blue: 0.078)
+    )
+    static let sunriseAccent = Color(red: 0.318, green: 0.553, blue: 0.62)
+    static let sunriseHighlight = Color(red: 0.918, green: 0.9, blue: 0.828)
 
-    static let copper = GradientSwatch(primary: Color(red: 0.89, green: 0.38, blue: 0.32), secondary: Color(red: 0.75, green: 0.26, blue: 0.32))
-    static let moss = GradientSwatch(primary: Color(red: 0.26, green: 0.52, blue: 0.47), secondary: Color(red: 0.16, green: 0.36, blue: 0.39))
-    static let cerulean = GradientSwatch(primary: Color(red: 0.22, green: 0.51, blue: 0.93), secondary: Color(red: 0.11, green: 0.3, blue: 0.73))
-    static let deepSea = Color(red: 0.09, green: 0.24, blue: 0.44)
-    static let lavender = Color(red: 0.63, green: 0.55, blue: 0.91)
-    static let midnight = GradientSwatch(primary: Color(red: 0.08, green: 0.11, blue: 0.27), secondary: Color(red: 0.13, green: 0.18, blue: 0.37))
-    static let midnightAccent = Color(red: 0.15, green: 0.18, blue: 0.43)
+    static let copper = GradientSwatch(
+        primary: Color(red: 0.42, green: 0.11, blue: 0.18),
+        secondary: Color(red: 0.27, green: 0.05, blue: 0.11)
+    )
+    static let moss = GradientSwatch(
+        primary: Color(red: 0.11, green: 0.45, blue: 0.57),
+        secondary: Color(red: 0.07, green: 0.31, blue: 0.43)
+    )
+    static let cerulean = GradientSwatch(
+        primary: Color(red: 0.15, green: 0.56, blue: 0.69),
+        secondary: Color(red: 0.09, green: 0.38, blue: 0.52)
+    )
+    static let deepSea = Color(red: 0.082, green: 0.376, blue: 0.478)
+    static let lavender = Color(red: 0.988, green: 0.956, blue: 0.86)
+    static let midnight = GradientSwatch(
+        primary: Color(red: 0.2, green: 0.07, blue: 0.12),
+        secondary: Color(red: 0.13, green: 0.03, blue: 0.08)
+    )
+    static let midnightAccent = Color(red: 0.29, green: 0.08, blue: 0.14)
 
     static func gradient(_ swatch: GradientSwatch) -> LinearGradient {
         swatch.gradient()
