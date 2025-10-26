@@ -1,845 +1,691 @@
 import SwiftUI
 import Combine
 import Charts
-import UserNotifications
-import Security
-#if canImport(UIKit)
-import UIKit
-#endif
 
 // MARK: - Application entry point
 @available(iOS 16.0, macOS 13.0, *)
 @main
-struct Base44MobileApp: App {
-    @StateObject private var session = SessionController()
-    @StateObject private var pushManager = PushNotificationManager()
+struct ProjectPulseApp: App {
+    @StateObject private var dataController = DataController()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(session)
-                .environmentObject(pushManager)
-                .task {
-                    await session.bootstrap()
-                    await pushManager.requestAuthorization()
-                }
+            DashboardContainerView()
+                .environmentObject(dataController)
+                .task { await dataController.bootstrap() }
         }
     }
 }
 
-// MARK: - Root view and navigation orchestration
-@available(iOS 16.0, macOS 13.0, *)
-struct RootView: View {
-    @EnvironmentObject private var session: SessionController
-
-    var body: some View {
-        Group {
-            switch session.phase {
-            case .loading:
-                ProgressView("Loading")
-            case .needsLogin:
-                LoginView()
-            case .authenticated(_):
-                DashboardContainerView()
-            }
-        }
-        .animation(.default, value: session.phase)
-    }
-}
-
-// MARK: - Session management
+// MARK: - Data controller
 @MainActor
-final class SessionController: ObservableObject {
-    enum Phase: Equatable {
-        case loading
-        case needsLogin
-        case authenticated(UserProfile)
-    }
+final class DataController: ObservableObject {
+    @Published private(set) var summary: CompanySummary = .placeholder
+    @Published private(set) var projects: [Project] = []
+    @Published private(set) var tasks: [TaskItem] = []
+    @Published private(set) var activity: [ActivityEvent] = []
 
-    @Published private(set) var phase: Phase = .loading
-    @Published private(set) var token: AuthToken?
-
-    private let api = Base44API()
-    private let keychain = KeychainStore(service: "com.base44.mobile")
+    private let persistence = LocalPersistence()
 
     func bootstrap() async {
-        defer { if case .loading = phase { phase = .needsLogin } }
         do {
-            if let storedToken: AuthToken = try keychain.read("authToken") {
-                token = storedToken
-                let profile = try await api.profile(token: storedToken)
-                phase = .authenticated(profile)
-            } else {
-                phase = .needsLogin
-            }
+            let snapshot = try await persistence.loadSnapshot()
+            apply(snapshot: snapshot)
         } catch {
-            print("Bootstrap error: \(error)")
-            phase = .needsLogin
+            print("Failed to load snapshot: \(error)")
+            apply(snapshot: .placeholder)
         }
     }
 
-    func login(credentials: Credentials) async throws {
-        phase = .loading
-        do {
-            let token = try await api.login(credentials: credentials)
-            try keychain.store(token, key: "authToken")
-            self.token = token
-            let profile = try await api.profile(token: token)
-            phase = .authenticated(profile)
-        } catch {
-            phase = .needsLogin
-            throw error
+    func refresh() async {
+        await bootstrap()
+    }
+
+    func toggleTask(_ task: TaskItem) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index].isCompleted.toggle()
+        persistence.persist(tasks: tasks)
+    }
+
+    func addQuickNote(_ note: ActivityEvent.Note) {
+        let event = ActivityEvent(id: UUID(), title: "Note added", timestamp: .now, kind: .note(note))
+        activity.insert(event, at: 0)
+        persistence.persist(activity: activity)
+    }
+
+    func apply(snapshot: DataSnapshot) {
+        summary = snapshot.summary
+        projects = snapshot.projects.sorted { $0.updatedAt > $1.updatedAt }
+        tasks = snapshot.tasks.sorted { $0.dueDate < $1.dueDate }
+        activity = snapshot.activity.sorted { $0.timestamp > $1.timestamp }
+    }
+}
+
+// MARK: - Persistence
+struct DataSnapshot: Codable {
+    var summary: CompanySummary
+    var projects: [Project]
+    var tasks: [TaskItem]
+    var activity: [ActivityEvent]
+
+    static let placeholder = DataSnapshot(
+        summary: .placeholder,
+        projects: SampleData.projects,
+        tasks: SampleData.tasks,
+        activity: SampleData.activity
+    )
+}
+
+actor LocalPersistence {
+    private let url: URL
+
+    init() {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        url = directory?.appending(path: "project-pulse.json") ?? URL(fileURLWithPath: "/tmp/project-pulse.json")
+    }
+
+    func loadSnapshot() async throws -> DataSnapshot {
+        if FileManager.default.fileExists(atPath: url.path()) {
+            let data = try Data(contentsOf: url)
+            return try JSONDecoder().decode(DataSnapshot.self, from: data)
+        } else {
+            let snapshot = DataSnapshot.placeholder
+            try persist(snapshot: snapshot)
+            return snapshot
         }
     }
 
-    func logout() {
-        token = nil
-        try? keychain.delete("authToken")
-        phase = .needsLogin
+    func persist(tasks: [TaskItem]) {
+        Task { await persistPartial { snapshot in snapshot.tasks = tasks } }
     }
 
-    func refreshProfile() async {
-        guard case .authenticated = phase, let token else { return }
+    func persist(activity: [ActivityEvent]) {
+        Task { await persistPartial { snapshot in snapshot.activity = activity } }
+    }
+
+    private func persist(snapshot: DataSnapshot) throws {
+        let data = try JSONEncoder().encode(snapshot)
+        try data.write(to: url, options: .atomic)
+    }
+
+    private func persistPartial(_ update: @escaping (inout DataSnapshot) -> Void) async {
         do {
-            let profile = try await api.profile(token: token)
-            phase = .authenticated(profile)
+            var snapshot = try await loadSnapshot()
+            update(&snapshot)
+            try persist(snapshot: snapshot)
         } catch {
-            print("Profile refresh failed: \(error)")
+            print("Failed to persist snapshot: \(error)")
         }
     }
 }
 
-// MARK: - API layer
-struct AuthToken: Codable, Equatable {
-    let accessToken: String
-    let refreshToken: String
-    let expiresAt: Date
-}
+// MARK: - Models
+struct CompanySummary: Codable, Equatable {
+    var activeProjects: Int
+    var overdueTasks: Int
+    var satisfaction: Double
+    var revenueByMonth: [MonthlyRevenue]
 
-struct Credentials: Equatable {
-    var email: String = ""
-    var password: String = ""
-}
+    struct MonthlyRevenue: Codable, Identifiable, Equatable {
+        var id: UUID = .init()
+        var month: String
+        var value: Double
+    }
 
-struct UserProfile: Codable, Equatable, Identifiable {
-    let id: UUID
-    let name: String
-    let email: String
-    let avatarURL: URL?
+    static let placeholder = CompanySummary(
+        activeProjects: 4,
+        overdueTasks: 2,
+        satisfaction: 0.86,
+        revenueByMonth: [
+            MonthlyRevenue(month: "Jan", value: 120_000),
+            MonthlyRevenue(month: "Feb", value: 118_500),
+            MonthlyRevenue(month: "Mar", value: 134_250),
+            MonthlyRevenue(month: "Apr", value: 142_100),
+            MonthlyRevenue(month: "May", value: 156_750)
+        ]
+    )
 }
 
 struct Project: Codable, Identifiable, Hashable {
-    let id: UUID
-    let name: String
-    let description: String
-    let status: Status
-    let updatedAt: Date
-
     enum Status: String, Codable, CaseIterable, Identifiable {
-        case draft, active, paused, complete
+        case discovery, planning, inProgress, blocked, complete
+
         var id: String { rawValue }
 
         var tint: Color {
             switch self {
-            case .draft: return .gray
-            case .active: return .green
-            case .paused: return .orange
-            case .complete: return .blue
+            case .discovery: return .mint
+            case .planning: return .indigo
+            case .inProgress: return .blue
+            case .blocked: return .orange
+            case .complete: return .green
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .discovery: return "Discovery"
+            case .planning: return "Planning"
+            case .inProgress: return "In Progress"
+            case .blocked: return "Blocked"
+            case .complete: return "Complete"
             }
         }
     }
+
+    var id: UUID
+    var name: String
+    var summary: String
+    var status: Status
+    var updatedAt: Date
+    var owner: TeamMember
+}
+
+struct TeamMember: Codable, Identifiable, Hashable {
+    var id: UUID
+    var name: String
+    var role: String
 }
 
 struct TaskItem: Codable, Identifiable, Hashable {
-    let id: UUID
-    let title: String
-    let dueDate: Date
-    let completed: Bool
-    let projectID: UUID
-}
+    var id: UUID
+    var title: String
+    var dueDate: Date
+    var isCompleted: Bool
+    var project: ProjectReference
 
-struct MetricPoint: Codable, Identifiable {
-    let label: String
-    let value: Double
-
-    var id: String { label }
-}
-
-struct ActivityLogEntry: Codable, Identifiable, Hashable {
-    let id: UUID
-    let action: String
-    let performedBy: String
-    let performedAt: Date
-}
-
-enum APIError: LocalizedError {
-    case invalidURL
-    case decodingFailed
-    case unauthorized
-    case server(message: String)
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL:
-            return "The Base44 API URL is invalid."
-        case .decodingFailed:
-            return "Unable to parse the response from Base44."
-        case .unauthorized:
-            return "Your session has expired. Please sign in again."
-        case .server(let message):
-            return message
-        }
+    struct ProjectReference: Codable, Hashable {
+        var id: UUID
+        var name: String
     }
 }
 
-final class Base44API {
-    private let baseURL = URL(string: "https://api.base44.com")
-    private let jsonDecoder: JSONDecoder
-    private let jsonEncoder: JSONEncoder
-    private let session: URLSession
+struct ActivityEvent: Codable, Identifiable, Hashable {
+    enum Kind: Codable, Hashable {
+        case milestone(String)
+        case note(Note)
+        case task(TaskItem)
 
-    init(session: URLSession = .shared) {
-        self.session = session
-        self.jsonDecoder = JSONDecoder()
-        self.jsonDecoder.dateDecodingStrategy = .iso8601
-        self.jsonEncoder = JSONEncoder()
-        self.jsonEncoder.dateEncodingStrategy = .iso8601
-    }
+        enum CodingKeys: CodingKey { case milestone, note, task }
 
-    func login(credentials: Credentials) async throws -> AuthToken {
-        let request = try request(
-            path: "/auth/login",
-            method: "POST",
-            body: ["email": credentials.email, "password": credentials.password]
-        )
-        return try await send(request)
-    }
-
-    func profile(token: AuthToken) async throws -> UserProfile {
-        var request = try request(path: "/me")
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    func projects(token: AuthToken) async throws -> [Project] {
-        var request = try request(path: "/projects")
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    func tasks(token: AuthToken, projectID: UUID? = nil) async throws -> [TaskItem] {
-        var components = URLComponents(url: try url(path: "/tasks"), resolvingAgainstBaseURL: false)
-        if let projectID {
-            components?.queryItems = [URLQueryItem(name: "projectId", value: projectID.uuidString)]
-        }
-        guard let url = components?.url else { throw APIError.invalidURL }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    func createTask(token: AuthToken, payload: TaskDraft) async throws -> TaskItem {
-        var request = try request(path: "/tasks", method: "POST", body: payload)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    func metrics(token: AuthToken) async throws -> [MetricPoint] {
-        var request = try request(path: "/analytics/metrics")
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    func activity(token: AuthToken) async throws -> [ActivityLogEntry] {
-        var request = try request(path: "/activity")
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await send(request)
-    }
-
-    // Generic request builders
-    private func url(path: String) throws -> URL {
-        guard let baseURL else { throw APIError.invalidURL }
-        return baseURL.appendingPathComponent(path)
-    }
-
-    private func request(path: String, method: String = "GET", body: Encodable? = nil) throws -> URLRequest {
-        let url = try url(path: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.addValue("application/json", forHTTPHeaderField: "Accept")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        if let body {
-            request.httpBody = try jsonEncoder.encode(AnyEncodable(body))
-        }
-        return request
-    }
-
-    private func send<Response: Decodable>(_ request: URLRequest) async throws -> Response {
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.server(message: "Unexpected response")
-        }
-
-        switch httpResponse.statusCode {
-        case 200..<300:
-            do {
-                return try jsonDecoder.decode(Response.self, from: data)
-            } catch {
-                throw APIError.decodingFailed
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            if let milestone = try container.decodeIfPresent(String.self, forKey: .milestone) {
+                self = .milestone(milestone)
+            } else if let note = try container.decodeIfPresent(Note.self, forKey: .note) {
+                self = .note(note)
+            } else if let task = try container.decodeIfPresent(TaskItem.self, forKey: .task) {
+                self = .task(task)
+            } else {
+                throw DecodingError.dataCorrupted(.init(codingPath: container.codingPath, debugDescription: "Unknown ActivityEvent kind"))
             }
-        case 401:
-            throw APIError.unauthorized
-        default:
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw APIError.server(message: message)
         }
-    }
-}
 
-struct TaskDraft: Codable {
-    var title: String = ""
-    var dueDate: Date = Date().addingTimeInterval(24 * 60 * 60)
-    var projectID: UUID?
-
-    init(title: String = "", dueDate: Date = Date().addingTimeInterval(24 * 60 * 60), projectID: UUID? = nil) {
-        self.title = title
-        self.dueDate = dueDate
-        self.projectID = projectID
-    }
-}
-
-private struct AnyEncodable: Encodable {
-    private let encodeImpl: (Encoder) throws -> Void
-
-    init(_ wrapped: Encodable) {
-        self.encodeImpl = wrapped.encode
-    }
-
-    func encode(to encoder: Encoder) throws {
-        try encodeImpl(encoder)
-    }
-}
-
-// MARK: - View Models
-@MainActor
-final class LoginFormViewModel: ObservableObject {
-    @Published var email: String = ""
-    @Published var password: String = ""
-    @Published private(set) var isValid: Bool = false
-    @Published var error: LocalizedError?
-    @Published private(set) var isSubmitting: Bool = false
-
-    private var cancellables: Set<AnyCancellable> = []
-
-    init() {
-        Publishers.CombineLatest($email, $password)
-            .map { email, password in
-                Self.validate(email: email, password: password)
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .milestone(let value):
+                try container.encode(value, forKey: .milestone)
+            case .note(let note):
+                try container.encode(note, forKey: .note)
+            case .task(let task):
+                try container.encode(task, forKey: .task)
             }
-            .receive(on: DispatchQueue.main)
-            .assign(to: &$isValid)
-    }
-
-    private static func validate(email: String, password: String) -> Bool {
-        guard !email.isEmpty, email.contains("@"), password.count >= 8 else { return false }
-        return true
-    }
-
-    func submit(using session: SessionController) async {
-        guard isValid else { return }
-        isSubmitting = true
-        defer { isSubmitting = false }
-
-        do {
-            error = nil
-            try await session.login(credentials: Credentials(email: email, password: password))
-        } catch {
-            self.error = error as? LocalizedError ?? APIError.server(message: error.localizedDescription)
         }
     }
 
-    func clearError() {
-        error = nil
+    struct Note: Codable, Hashable {
+        var author: TeamMember
+        var message: String
     }
 
-
-
-}
-
-@MainActor
-final class DashboardViewModel: ObservableObject {
-    @Published private(set) var projects: [Project] = []
-    @Published private(set) var tasks: [TaskItem] = []
-    @Published private(set) var metrics: [MetricPoint] = []
-    @Published private(set) var activity: [ActivityLogEntry] = []
-    @Published var selectedProject: Project?
-    @Published var isPresentingNewTask: Bool = false
-    @Published var taskDraft = TaskDraft()
-    @Published var error: LocalizedError?
-
-    private let api: Base44API
-    private let session: SessionController
-
-    init(api: Base44API = Base44API(), session: SessionController) {
-        self.api = api
-        self.session = session
-    }
-
-    func reload() async {
-        guard let token = session.token else { return }
-        do {
-            error = nil
-            async let projects = api.projects(token: token)
-            async let tasks = api.tasks(token: token, projectID: selectedProject?.id)
-            async let metrics = api.metrics(token: token)
-            async let activity = api.activity(token: token)
-            self.projects = try await projects
-            self.tasks = try await tasks
-            self.metrics = try await metrics
-            self.activity = try await activity
-        } catch {
-            self.error = error as? LocalizedError ?? APIError.server(message: error.localizedDescription)
-        }
-    }
-
-    func saveTask() async {
-        guard let token = session.token else { return }
-        do {
-            let created = try await api.createTask(token: token, payload: taskDraft)
-            tasks.append(created)
-            isPresentingNewTask = false
-            taskDraft = TaskDraft(projectID: selectedProject?.id)
-            error = nil
-        } catch {
-            self.error = error as? LocalizedError ?? APIError.server(message: error.localizedDescription)
-        }
-    }
-
-    func clearError() {
-        error = nil
-    }
-
-    func beginCreatingTask() {
-        taskDraft = TaskDraft(projectID: selectedProject?.id)
-        isPresentingNewTask = true
-    }
+    var id: UUID
+    var title: String
+    var timestamp: Date
+    var kind: Kind
 }
 
 // MARK: - Views
 @available(iOS 16.0, macOS 13.0, *)
-struct LoginView: View {
-    @StateObject private var viewModel = LoginFormViewModel()
-    @EnvironmentObject private var session: SessionController
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Account") {
-                    TextField("Email", text: $viewModel.email)
-                        .textContentType(.username)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        SecureField("Password", text: $viewModel.password)
-                            .textContentType(.password)
-                }
-
-                Section {
-                    Button {
-                        Task { await viewModel.submit(using: session) }
-                    } label: {
-                        if viewModel.isSubmitting {
-                            ProgressView()
-                        } else {
-                            Text("Sign In")
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .disabled(!viewModel.isValid || viewModel.isSubmitting)
-                }
-            }
-            .navigationTitle("Base44 Login")
-            .alert("Sign-in failed", isPresented: .constant(viewModel.error != nil)) {
-                Button("Dismiss", role: .cancel) { viewModel.clearError() }
-            } message: {
-                Text(viewModel.error?.errorDescription ?? "Unknown error")
-            }
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
 struct DashboardContainerView: View {
-    @EnvironmentObject private var session: SessionController
+    @EnvironmentObject private var data: DataController
+    @State private var isRefreshing = false
+    @State private var showingQuickNote = false
+    @State private var quickNote = ""
 
     var body: some View {
         NavigationStack {
-            DashboardView(session: session)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        if case let .authenticated(profile) = session.phase {
-                            ProfileMenu(profile: profile)
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Refresh") { Task { await session.refreshProfile() } }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    SummaryHeader(summary: data.summary)
+                    RevenueChart(revenue: data.summary.revenueByMonth)
+                    ProjectsSection(projects: data.projects)
+                    TaskSection(tasks: data.tasks, toggleTask: data.toggleTask)
+                    ActivityFeedSection(activity: data.activity)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
+            }
+            .navigationTitle("Project Pulse")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingQuickNote = true
+                    } label: {
+                        Label("Quick Note", systemImage: "square.and.pencil")
                     }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if isRefreshing {
+                        ProgressView()
+                    } else {
+                        Button {
+                            Task { await refresh() }
+                        } label: {
+                            Label("Refresh", systemImage: "arrow.clockwise")
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showingQuickNote) {
+                QuickNoteSheet(noteText: $quickNote) { message in
+                    let author = SampleData.team.randomElement() ?? SampleData.team[0]
+                    let note = ActivityEvent.Note(author: author, message: message)
+                    data.addQuickNote(note)
+                }
+            }
+        }
+    }
+
+    private func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        await data.refresh()
+        isRefreshing = false
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct SummaryHeader: View {
+    let summary: CompanySummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Today")
+                .font(.title3.bold())
+                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                MetricTile(title: "Active Projects", value: "\(summary.activeProjects)", systemImage: "folder.fill")
+                MetricTile(title: "Overdue Tasks", value: "\(summary.overdueTasks)", systemImage: "exclamationmark.triangle.fill", tint: .orange)
+                MetricTile(title: "Satisfaction", value: summary.satisfaction.percentDisplay, systemImage: "hand.thumbsup.fill", tint: .green)
+            }
         }
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct DashboardView: View {
-    @ObservedObject var session: SessionController
-    @StateObject private var viewModel: DashboardViewModel
-
-    init(session: SessionController) {
-        _session = ObservedObject(wrappedValue: session)
-        _viewModel = StateObject(wrappedValue: DashboardViewModel(session: session))
-    }
+struct MetricTile: View {
+    var title: String
+    var value: String
+    var systemImage: String
+    var tint: Color = .accentColor
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
-                metricsSection
-                projectsSection
-                tasksSection
-                activitySection
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.largeTitle.bold())
+                .foregroundStyle(tint)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct RevenueChart: View {
+    let revenue: [CompanySummary.MonthlyRevenue]
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Revenue")
+                .font(.title2.bold())
+            Chart(revenue) { item in
+                BarMark(
+                    x: .value("Month", item.month),
+                    y: .value("Revenue", item.value)
+                )
+                .foregroundStyle(.blue.gradient)
             }
-            .padding()
+            .frame(height: 220)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .task { await viewModel.reload() }
-        .onChange(of: session.token) { _ in Task { await viewModel.reload() } }
-        .onChange(of: viewModel.selectedProject) { _ in Task { await viewModel.reload() } }
-        .sheet(isPresented: $viewModel.isPresentingNewTask) {
-            NewTaskForm(viewModel: viewModel)
+        .padding(20)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct ProjectsSection: View {
+    let projects: [Project]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Projects")
+                .font(.title2.bold())
+            ForEach(projects) { project in
+                NavigationLink(value: project) {
+                    ProjectCard(project: project)
+                }
+            }
         }
-        .alert("Error", isPresented: .constant(viewModel.error != nil)) {
-            Button("Dismiss", role: .cancel) { viewModel.clearError() }
-        } message: {
-            Text(viewModel.error?.errorDescription ?? "Unknown error")
+        .navigationDestination(for: Project.self) { project in
+            ProjectDetailView(project: project)
         }
     }
+}
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Dashboard")
-                    .font(.largeTitle.bold())
-                Text("Monitor projects, tasks, and activity from Base44")
-                    .font(.subheadline)
+@available(iOS 16.0, macOS 13.0, *)
+struct ProjectCard: View {
+    let project: Project
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(project.name)
+                    .font(.headline)
+                Spacer()
+                StatusBadge(status: project.status)
+            }
+            Text(project.summary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            HStack {
+                Label(project.owner.name, systemImage: "person.fill")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(project.updatedAt, format: .relative(presentation: .named))
                     .foregroundStyle(.secondary)
             }
-            Spacer()
-            Button {
-                viewModel.beginCreatingTask()
-            } label: {
-                Label("New Task", systemImage: "plus.circle.fill")
-            }
-            .buttonStyle(.borderedProminent)
         }
-    }
-
-    private var metricsSection: some View {
-        GroupBox("Analytics") {
-            if viewModel.metrics.isEmpty {
-                Text("No metrics available yet.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Chart(viewModel.metrics) { point in
-                    BarMark(
-                        x: .value("Metric", point.label),
-                        y: .value("Value", point.value)
-                    )
-                }
-                .chartYAxisLabel("Value")
-                .frame(height: 180)
-            }
-        }
-    }
-
-    private var projectsSection: some View {
-        GroupBox("Projects") {
-            if viewModel.projects.isEmpty {
-                Text("No projects found.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(viewModel.projects) { project in
-                        Button {
-                            withAnimation { viewModel.selectedProject = project }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(project.name)
-                                        .font(.headline)
-                                    Spacer()
-                                    Text(project.status.rawValue.capitalized)
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.vertical, 4)
-                                        .padding(.horizontal, 8)
-                                        .background(project.status.tint.opacity(0.15), in: Capsule())
-                                        .foregroundStyle(project.status.tint)
-                                }
-                                Text(project.description)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                Text(project.updatedAt.formatted(.relative(presentation: .named)))
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(viewModel.selectedProject?.id == project.id ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
-    private var tasksSection: some View {
-        GroupBox("Tasks") {
-            if viewModel.tasks.isEmpty {
-                Text("No tasks scheduled.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(viewModel.tasks) { task in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(task.title)
-                                    .font(.headline)
-                                Spacer()
-                                Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(task.completed ? Color.green : Color.secondary)
-                            }
-                            HStack(spacing: 8) {
-                                Text(task.dueDate, style: .date)
-                                    .font(.caption)
-                                if let project = viewModel.projects.first(where: { $0.id == task.projectID }) {
-                                    Text(project.name)
-                                        .font(.caption.weight(.medium))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.secondary.opacity(0.08))
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private var activitySection: some View {
-        GroupBox("Recent activity") {
-            if viewModel.activity.isEmpty {
-                Text("No recent actions.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ForEach(Array(viewModel.activity.enumerated()), id: \.element.id) { index, entry in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.action)
-                            .font(.subheadline)
-                        HStack(spacing: 8) {
-                            Text(entry.performedBy)
-                                .font(.caption.weight(.medium))
-                            Text(entry.performedAt, style: .relative)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    if index != viewModel.activity.count - 1 {
-                        Divider()
-                    }
-                }
-            }
-        }
+        .padding(20)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct ProfileMenu: View {
-    let profile: UserProfile
-    @EnvironmentObject private var session: SessionController
+struct StatusBadge: View {
+    let status: Project.Status
 
     var body: some View {
-        Menu {
-            Button("Refresh profile") { Task { await session.refreshProfile() } }
-            Button("Sign out", role: .destructive) { session.logout() }
-        } label: {
-            HStack {
-                if let avatarURL = profile.avatarURL {
-                    AsyncImage(url: avatarURL) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image.resizable()
-                                .aspectRatio(contentMode: .fill)
-                        case .failure:
-                            placeholder
-                        @unknown default:
-                            placeholder
-                        }
-                    }
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
-                } else {
-                    placeholder
-                }
-                Text(profile.name)
-            }
-        }
-    }
-
-    private var placeholder: some View {
-        Circle()
-            .fill(Color.gray.opacity(0.3))
-            .overlay(Text(String(profile.name.prefix(1))).font(.caption.bold()))
-            .frame(width: 32, height: 32)
+        Text(status.label.uppercased())
+            .font(.caption.bold())
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .background(status.tint.opacity(0.15))
+            .foregroundStyle(status.tint)
+            .clipShape(Capsule())
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct NewTaskForm: View {
-    @ObservedObject var viewModel: DashboardViewModel
+struct ProjectDetailView: View {
+    let project: Project
+
+    var body: some View {
+        List {
+            Section("Summary") {
+                Text(project.summary)
+            }
+            Section("Owner") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(project.owner.name).font(.headline)
+                    Text(project.owner.role).foregroundStyle(.secondary)
+                }
+            }
+            Section("Status") {
+                StatusBadge(status: project.status)
+            }
+        }
+        .navigationTitle(project.name)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct TaskSection: View {
+    let tasks: [TaskItem]
+    var toggleTask: (TaskItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Upcoming Tasks")
+                .font(.title2.bold())
+            ForEach(tasks) { task in
+                TaskRow(task: task) { toggleTask(task) }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct TaskRow: View {
+    let task: TaskItem
+    var onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 16) {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(task.isCompleted ? .green : .secondary)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(.headline)
+                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                    Text("Due \(task.dueDate, style: .date) • \(task.project.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct ActivityFeedSection: View {
+    let activity: [ActivityEvent]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Activity")
+                .font(.title2.bold())
+            ForEach(activity) { event in
+                ActivityRow(event: event)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct ActivityRow: View {
+    let event: ActivityEvent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(event.title).font(.headline)
+                Spacer()
+                Text(event.timestamp, format: .relative(presentation: .numeric))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            switch event.kind {
+            case .milestone(let message):
+                Label(message, systemImage: "flag.fill")
+                    .foregroundStyle(.blue)
+            case .note(let note):
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(note.message)
+                    Text("— \(note.author.name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            case .task(let task):
+                Label("Task \(task.isCompleted ? "completed" : "updated"): \(task.title)", systemImage: "checkmark.seal")
+                    .foregroundStyle(task.isCompleted ? .green : .secondary)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct QuickNoteSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Binding var noteText: String
+    var onSubmit: (String) -> Void
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Details") {
-                    TextField("Title", text: $viewModel.taskDraft.title)
-                    DatePicker("Due date", selection: $viewModel.taskDraft.dueDate, displayedComponents: .date)
-                }
-
-                Section("Project") {
-                    Picker("Project", selection: $viewModel.taskDraft.projectID) {
-                        Text("Unassigned").tag(UUID?.none)
-                        ForEach(viewModel.projects) { project in
-                            Text(project.name).tag(UUID?.some(project.id))
-                        }
-                    }
+                Section("New note") {
+                    TextEditor(text: $noteText)
+                        .frame(minHeight: 120)
                 }
             }
-            .navigationTitle("New Task")
+            .navigationTitle("Quick Note")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        Task {
-                            await viewModel.saveTask()
-                            if viewModel.error == nil {
-                                dismiss()
-                            }
-                        }
+                        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        onSubmit(trimmed)
+                        noteText = ""
+                        dismiss()
                     }
-                        .disabled(viewModel.taskDraft.title.isEmpty)
                 }
             }
         }
     }
 }
 
-// MARK: - Platform services
-final class PushNotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
-    @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
+// MARK: - Sample data
+enum SampleData {
+    static let team: [TeamMember] = [
+        TeamMember(id: UUID(), name: "Samira Lee", role: "Product Manager"),
+        TeamMember(id: UUID(), name: "Nikhil Rao", role: "iOS Engineer"),
+        TeamMember(id: UUID(), name: "Adriana Flores", role: "Design Lead"),
+        TeamMember(id: UUID(), name: "Liam Chen", role: "Backend Engineer")
+    ]
 
-    func requestAuthorization() async {
-        let center = UNUserNotificationCenter.current()
-        center.delegate = self
-        do {
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-            await MainActor.run {
-                self.authorizationStatus = granted ? .authorized : .denied
-            }
-        } catch {
-            await MainActor.run {
-                self.authorizationStatus = .denied
-            }
-        }
-#if canImport(UIKit)
-        await MainActor.run {
-            UIApplication.shared.registerForRemoteNotifications()
-        }
-#endif
+    static let projects: [Project] = [
+        Project(
+            id: UUID(),
+            name: "Discovery Hub",
+            summary: "Next-generation research workflow for distributed teams.",
+            status: .inProgress,
+            updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
+            owner: team[0]
+        ),
+        Project(
+            id: UUID(),
+            name: "Pulse Analytics",
+            summary: "Unified dashboard with predictive health indicators.",
+            status: .planning,
+            updatedAt: Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now,
+            owner: team[1]
+        ),
+        Project(
+            id: UUID(),
+            name: "LaunchPad",
+            summary: "Automation toolkit for onboarding enterprise customers.",
+            status: .discovery,
+            updatedAt: Calendar.current.date(byAdding: .day, value: -5, to: .now) ?? .now,
+            owner: team[2]
+        )
+    ]
+
+    static let tasks: [TaskItem] = [
+        TaskItem(
+            id: UUID(),
+            title: "Finalize analytics schema",
+            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now,
+            isCompleted: false,
+            project: .init(id: projects[1].id, name: projects[1].name)
+        ),
+        TaskItem(
+            id: UUID(),
+            title: "Storyboard onboarding flow",
+            dueDate: Calendar.current.date(byAdding: .day, value: 2, to: .now) ?? .now,
+            isCompleted: false,
+            project: .init(id: projects[2].id, name: projects[2].name)
+        ),
+        TaskItem(
+            id: UUID(),
+            title: "Review discovery interview notes",
+            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
+            isCompleted: true,
+            project: .init(id: projects[0].id, name: projects[0].name)
+        )
+    ]
+
+    static let activity: [ActivityEvent] = [
+        ActivityEvent(
+            id: UUID(),
+            title: "LaunchPad milestone reached",
+            timestamp: Calendar.current.date(byAdding: .hour, value: -2, to: .now) ?? .now,
+            kind: .milestone("Prototype approved by stakeholders")
+        ),
+        ActivityEvent(
+            id: UUID(),
+            title: "Discovery interview summary",
+            timestamp: Calendar.current.date(byAdding: .hour, value: -5, to: .now) ?? .now,
+            kind: .note(.init(author: team[0], message: "Key insight: teams need faster approvals."))
+        ),
+        ActivityEvent(
+            id: UUID(),
+            title: "Task completed",
+            timestamp: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
+            kind: .task(tasks[2])
+        )
+    ]
+}
+
+// MARK: - Formatters
+private enum Formatters {
+    static let percent: Foundation.NumberFormatter = {
+        let formatter = Foundation.NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 0
+        return formatter
+    }()
+}
+
+private extension Double {
+    var percentDisplay: String {
+        Formatters.percent.string(from: NSNumber(value: self)) ?? "--"
     }
 }
 
-// MARK: - Keychain utilities
-struct KeychainStore {
-    let service: String
-
-    func store<T: Codable>(_ value: T, key: String) throws {
-        let data = try JSONEncoder().encode(value)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            kSecValueData as String: data
-        ]
-        SecItemDelete(query as CFDictionary)
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else { throw KeychainError.unhandled(status) }
-    }
-
-    func read<T: Codable>(_ key: String) throws -> T? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status != errSecItemNotFound else { return nil }
-        guard status == errSecSuccess else { throw KeychainError.unhandled(status) }
-        guard let data = result as? Data else { return nil }
-        return try JSONDecoder().decode(T.self, from: data)
-    }
-
-    func delete(_ key: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key
-        ]
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw KeychainError.unhandled(status)
-        }
-    }
-}
-
-enum KeychainError: Error {
-    case unhandled(OSStatus)
-}
-
-// MARK: - Previews
+// MARK: - Preview
 @available(iOS 16.0, macOS 13.0, *)
-struct Base44MobileApp_Previews: PreviewProvider {
+struct DashboardContainerView_Previews: PreviewProvider {
     static var previews: some View {
-        RootView()
-            .environmentObject(SessionController())
-            .environmentObject(PushNotificationManager())
+        DashboardContainerView()
+            .environmentObject({
+                let controller = DataController()
+                controller.apply(snapshot: .placeholder)
+                return controller
+            }())
     }
 }
