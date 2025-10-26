@@ -1094,7 +1094,13 @@ struct CertificationSection: View {
 struct BridgeAISection<Content: View>: View {
     let title: String
     let subtitle: String
-    @ViewBuilder var content: Content
+    private let content: Content
+
+    init(title: String, subtitle: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
