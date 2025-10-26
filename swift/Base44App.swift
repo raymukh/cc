@@ -301,61 +301,14 @@ struct SupplyCartSection: View {
         BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
             VStack(spacing: 16) {
                 VStack(spacing: 12) {
-                    ForEach(Array(items.indices), id: \.self) { index in
-                        let itemBinding = $items[index]
-                        let item = itemBinding.wrappedValue
-
-                        HStack(spacing: 14) {
-                            Button {
-                                itemBinding.wrappedValue.isOwned.toggle()
-                            } label: {
-                                Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
-                                    .font(.title3)
-                                    .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, element in
+                        SupplyItemRow(item: $items[index]) {
+                            withAnimation(.easeInOut) {
+                                removeItem(withID: element.id)
                             }
-                            .buttonStyle(.plain)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(BridgeAITheme.textPrimary)
-                                if !item.detail.isEmpty {
-                                    Text(item.detail)
-                                        .font(.caption)
-                                        .foregroundStyle(BridgeAITheme.textSecondary)
-                                }
-                            }
-
-                            Spacer(minLength: 12)
-
-                            if let reminder = item.reminderDate {
-                                Text(reminder)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(BridgeAITheme.accent)
-                            }
-
-                            Button {
-                                withAnimation(.easeInOut) {
-                                    items.remove(at: index)
-                                }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.callout.weight(.semibold))
-                                    .foregroundStyle(BridgeAITheme.merlot)
-                                    .padding(8)
-                                    .background(
-                                        Circle()
-                                            .fill(BridgeAITheme.surfaceSecondary.opacity(0.7))
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Remove \(item.name)")
                         }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(BridgeAITheme.surface)
-                        )
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("supply-item-\(element.id.uuidString)")
                     }
                 }
 
@@ -370,9 +323,72 @@ struct SupplyCartSection: View {
         }
         .sheet(isPresented: $isPresentingAddItem) {
             AddSupplyItemSheet { newItem in
-                items.append(newItem)
+                items.wrappedValue.append(newItem)
             }
         }
+    }
+
+    private func removeItem(withID id: SupplyItem.ID) {
+        var currentItems = items.wrappedValue
+        guard let index = currentItems.firstIndex(where: { $0.id == id }) else { return }
+        currentItems.remove(at: index)
+        items.wrappedValue = currentItems
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct SupplyItemRow: View {
+    @Binding var item: SupplyItem
+    var onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Button {
+                item.isOwned.toggle()
+            } label: {
+                Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+                if !item.detail.isEmpty {
+                    Text(item.detail)
+                        .font(.caption)
+                        .foregroundStyle(BridgeAITheme.textSecondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if let reminder = item.reminderDate {
+                Text(reminder)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.accent)
+            }
+
+            Button(action: onRemove) {
+                Image(systemName: "trash")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.merlot)
+                    .padding(8)
+                    .background(
+                        Circle()
+                            .fill(BridgeAITheme.surfaceSecondary.opacity(0.7))
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(item.name)")
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
     }
 }
 
