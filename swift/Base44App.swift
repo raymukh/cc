@@ -66,11 +66,11 @@ struct AssistiveSupportView: View {
                 VStack(spacing: 28) {
                     AssistiveHeroCard(overview: model.overview)
 
+                    CalmModeSection(settings: $model.calmSettings)
+
                     AssistiveScenarioSection(scenarios: $model.scenarios)
 
                     SupplyCartSection(items: $model.supplyItems)
-
-                    CalmModeSection(settings: $model.calmSettings)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
@@ -87,23 +87,35 @@ struct AssistiveHeroCard: View {
     let overview: AssistiveOverview
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(overview.title)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 18) {
+            Label {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(overview.title)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
 
-            Text(overview.summary)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.white.opacity(0.9))
-                .fixedSize(horizontal: false, vertical: true)
+                    Text(overview.summary)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } icon: {
+                BridgeSymbol()
+                    .frame(width: 48, height: 48)
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.white.opacity(0.12))
+                    )
+            }
 
             Divider()
                 .overlay(.white.opacity(0.2))
 
             HStack(spacing: 18) {
-                MetricBadge(icon: "clock.badge.checkmark", title: "Response Coach", detail: "Step-by-step prompts for urgent care situations.")
+                MetricBadge(icon: "magnifyingglass", title: "AI Search", detail: "Quickly pull up any safety checklist you need.")
 
-                MetricBadge(icon: "person.text.rectangle", title: "Multi-Sensory", detail: "Readable, audible, and haptic cues reduce panic.")
+                MetricBadge(icon: "waveform", title: "Voice Assist", detail: "Ask for next steps or confirm actions hands-free.")
             }
         }
         .padding(26)
@@ -149,6 +161,55 @@ struct MetricBadge: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.white.opacity(0.06))
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeSymbol: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+            let deckHeight = height * 0.22
+            let pillarWidth = width * 0.18
+            let pillarHeight = height * 0.55
+            let archHeight = height * 0.45
+
+            ZStack {
+                Path { path in
+                    let leftStart = CGPoint(x: width * 0.12, y: height - deckHeight)
+                    let rightStart = CGPoint(x: width * 0.88, y: height - deckHeight)
+                    let control = CGPoint(x: width * 0.5, y: height - deckHeight - archHeight)
+
+                    path.move(to: leftStart)
+                    path.addQuadCurve(to: rightStart, control: control)
+                    path.addLine(to: CGPoint(x: rightStart.x, y: rightStart.y + deckHeight * 0.4))
+                    path.addQuadCurve(
+                        to: CGPoint(x: leftStart.x, y: leftStart.y + deckHeight * 0.4),
+                        control: CGPoint(x: width * 0.5, y: height - deckHeight - archHeight * 0.55)
+                    )
+                    path.closeSubpath()
+                }
+                .fill(.white.opacity(0.8))
+
+                RoundedRectangle(cornerRadius: deckHeight / 2, style: .continuous)
+                    .fill(.white)
+                    .frame(width: width, height: deckHeight)
+                    .position(x: width / 2, y: height - deckHeight / 2)
+
+                HStack(spacing: width * 0.28) {
+                    RoundedRectangle(cornerRadius: pillarWidth * 0.4, style: .continuous)
+                        .fill(.white.opacity(0.85))
+                        .frame(width: pillarWidth, height: pillarHeight)
+
+                    RoundedRectangle(cornerRadius: pillarWidth * 0.4, style: .continuous)
+                        .fill(.white.opacity(0.85))
+                        .frame(width: pillarWidth, height: pillarHeight)
+                }
+                .position(x: width / 2, y: height - deckHeight - pillarHeight / 2)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 
@@ -376,6 +437,14 @@ struct EmergencyStatusCard: View {
                     Text(model.primaryChannel)
                         .font(.body)
                         .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Divider().overlay(.white.opacity(0.2))
+
+                HStack(spacing: 18) {
+                    MetricBadge(icon: "bolt.fill", title: "AI Response", detail: "Launches calls, GPS shares, and contact alerts instantly.")
+
+                    MetricBadge(icon: "person.text.rectangle", title: "Multi-Sensory", detail: "Voice, visuals, and haptics stay active even when screens lock.")
                 }
             }
 
@@ -1112,8 +1181,8 @@ final class AssistiveModel: ObservableObject {
     static func sample() -> AssistiveModel {
         AssistiveModel(
             overview: AssistiveOverview(
-                title: "Guidance when seconds count",
-                summary: "Follow adaptive prompts to keep someone safe before first responders arrive."
+                title: "Be Prepared, Not Scared",
+                summary: "Review these disaster plans to know exactly what to do when emergencies happen. Each plan includes before, during, and after guidance tailored to your safety."
             ),
             scenarios: [
                 CrisisScenario(
