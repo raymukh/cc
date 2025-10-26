@@ -235,52 +235,71 @@ struct DisasterPlanSection: View {
 
     var body: some View {
         BridgeAISection(title: "Disaster Readiness", subtitle: "Before, during, and after playbooks with live inputs.") {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(plans) { plan in
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack {
-                                Text(plan.name)
-                                    .font(.headline)
-                                    .foregroundStyle(BridgeAITheme.textPrimary)
-                                Spacer()
-                                Label(plan.alertLevel, systemImage: "antenna.radiowaves.left.and.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(plan.alertColor)
-                                    .labelStyle(.trailingIcon)
-                            }
-
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(plan.checklist.prefix(3), id: \.self) { item in
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(BridgeAITheme.primary)
-                                            .font(.caption)
-                                        Text(item)
-                                            .font(.footnote)
-                                            .foregroundStyle(BridgeAITheme.textSecondary)
-                                    }
-                                }
-                            }
-
-                            HStack {
-                                Image(systemName: "cloud.sun")
-                                Text("Live feed: \(plan.dataSource)")
-                            }
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(BridgeAITheme.textMuted)
+            GeometryReader { proxy in
+                let cardWidth = max(proxy.size.width, 280)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 16) {
+                        ForEach(plans) { plan in
+                            DisasterPlanCard(plan: plan)
+                                .frame(width: cardWidth)
                         }
-                        .padding(18)
-                        .frame(width: 260, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(BridgeAITheme.surface)
-                        )
+                    }
+                    .padding(.horizontal, 2)
+                }
+            }
+            .frame(height: 260)
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct DisasterPlanCard: View {
+    let plan: DisasterPlan
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(plan.name)
+                    .font(.headline)
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+
+                Spacer()
+
+                Label(plan.alertLevel, systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(plan.alertColor)
+                    .labelStyle(.trailingIcon)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(plan.checklist.prefix(3), id: \.self) { item in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(BridgeAITheme.primary)
+
+                        Text(item)
+                            .font(.callout)
+                            .foregroundStyle(BridgeAITheme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.horizontal, 2)
             }
+
+            HStack(spacing: 6) {
+                Image(systemName: "cloud.sun")
+                Text("Live feed: \(plan.dataSource)")
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(BridgeAITheme.textMuted)
         }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
     }
 }
 
