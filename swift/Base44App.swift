@@ -88,19 +88,19 @@ struct AssistiveHeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .center, spacing: 20) {
+            HStack(alignment: .center, spacing: 18) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(.white.opacity(0.18))
-                        .frame(width: 72, height: 72)
+                        .frame(width: 56, height: 56)
 
                     BridgeSymbol()
-                        .frame(width: 42, height: 42)
+                        .frame(width: 32, height: 32)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(overview.title)
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
                     Text(overview.summary)
@@ -298,46 +298,51 @@ struct SupplyCartSection: View {
 
     var body: some View {
         BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
-            VStack(spacing: 12) {
-                ForEach($items) { $item in
-                    HStack(spacing: 14) {
-                        Button {
-                            item.isOwned.toggle()
-                        } label: {
-                            Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
-                                .font(.title3)
-                                .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
-                        }
-                        .buttonStyle(.plain)
+            VStack(spacing: 16) {
+                VStack(spacing: 12) {
+                    ForEach($items) { $item in
+                        HStack(spacing: 14) {
+                            Button {
+                                item.isOwned.toggle()
+                            } label: {
+                                Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
+                                    .font(.title3)
+                                    .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+                            }
+                            .buttonStyle(.plain)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BridgeAITheme.textPrimary)
-                            Text(item.detail)
-                                .font(.caption)
-                                .foregroundStyle(BridgeAITheme.textSecondary)
-                        }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(BridgeAITheme.textPrimary)
+                                Text(item.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(BridgeAITheme.textSecondary)
+                            }
 
-                        Spacer()
+                            Spacer()
 
-                        if let reminder = item.reminderDate {
-                            VStack(alignment: .trailing, spacing: 4) {
+                            if let reminder = item.reminderDate {
                                 Text(reminder)
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(BridgeAITheme.accent)
-                                Text("Expiry check")
-                                    .font(.caption2)
-                                    .foregroundStyle(BridgeAITheme.textMuted)
                             }
                         }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(BridgeAITheme.surface)
+                        )
                     }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(BridgeAITheme.surface)
-                    )
                 }
+
+                Button {
+                    // Placeholder for add-item flow
+                } label: {
+                    Label("Add supply item", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
             }
         }
     }
@@ -1239,10 +1244,18 @@ final class AssistiveModel: ObservableObject {
                 )
             ],
             supplyItems: [
-                SupplyItem(name: "Dual-purpose first aid kit", detail: "Include antihistamines, gloves, gauze, tourniquet.", isOwned: true, reminderDate: "Check in 45 days"),
-                SupplyItem(name: "Portable water filters", detail: "Two-stage filters sized for four people.", isOwned: false, reminderDate: nil),
-                SupplyItem(name: "Spare power banks", detail: "Keep above 80% charge, rotate monthly.", isOwned: true, reminderDate: "Test on Apr 12"),
-                SupplyItem(name: "Emergency blankets", detail: "Vacuum sealed, heat reflective.", isOwned: false, reminderDate: nil)
+                SupplyItem(
+                    name: "Dual-purpose first aid kit",
+                    detail: "Include antihistamines, gloves, gauze, tourniquet.",
+                    isOwned: true,
+                    reminderDate: "Expires Aug 18"
+                ),
+                SupplyItem(
+                    name: "Portable water filters",
+                    detail: "Two-stage filters sized for four people.",
+                    isOwned: false,
+                    reminderDate: "Expires Jan 6"
+                )
             ],
             calmSettings: CalmSettings(voiceGuidance: true, hapticSupport: true, highContrast: false, breathingPace: 6)
         )
