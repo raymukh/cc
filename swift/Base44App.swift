@@ -301,14 +301,18 @@ struct SupplyCartSection: View {
         BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
             VStack(spacing: 16) {
                 VStack(spacing: 12) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, element in
-                        SupplyItemRow(item: $items[index]) {
-                            withAnimation(.easeInOut) {
-                                removeItem(withID: element.id)
+                    ForEach(items) { item in
+                        SupplyItemRow(
+                            item: item,
+                            onToggle: { toggleItem(withID: item.id) },
+                            onRemove: {
+                                withAnimation(.easeInOut) {
+                                    removeItem(withID: item.id)
+                                }
                             }
-                        }
+                        )
                         .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier("supply-item-\(element.id.uuidString)")
+                        .accessibilityIdentifier("supply-item-\(item.id.uuidString)")
                     }
                 }
 
@@ -323,29 +327,35 @@ struct SupplyCartSection: View {
         }
         .sheet(isPresented: $isPresentingAddItem) {
             AddSupplyItemSheet { newItem in
-                items.wrappedValue.append(newItem)
+                var updatedItems = items
+                updatedItems.append(newItem)
+                items = updatedItems
             }
         }
     }
 
     private func removeItem(withID id: SupplyItem.ID) {
-        var currentItems = items.wrappedValue
-        guard let index = currentItems.firstIndex(where: { $0.id == id }) else { return }
-        currentItems.remove(at: index)
-        items.wrappedValue = currentItems
+        let updatedItems = items.filter { $0.id != id }
+        items = updatedItems
+    }
+
+    private func toggleItem(withID id: SupplyItem.ID) {
+        var updatedItems = items
+        guard let index = updatedItems.firstIndex(where: { $0.id == id }) else { return }
+        updatedItems[index].isOwned.toggle()
+        items = updatedItems
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct SupplyItemRow: View {
-    @Binding var item: SupplyItem
+    let item: SupplyItem
+    var onToggle: () -> Void
     var onRemove: () -> Void
 
     var body: some View {
         HStack(spacing: 14) {
-            Button {
-                item.isOwned.toggle()
-            } label: {
+            Button(action: onToggle) {
                 Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
                     .font(.title3)
                     .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
