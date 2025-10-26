@@ -1,1048 +1,1581 @@
 import SwiftUI
 
-// MARK: - Entry point
+// MARK: - Entry Point
 @available(iOS 16.0, macOS 13.0, *)
 @main
 struct BridgeAIClientApp: App {
     var body: some Scene {
         WindowGroup {
-            BridgeAIDashboardView()
+            BridgeAIRootView()
         }
     }
 }
 
-// MARK: - Root scene
+// MARK: - Root Navigation
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAIDashboardView: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @StateObject private var model = BridgeAIDashboardModel.sample()
-    @State private var showSupportSheet = false
-
-    private var isCompact: Bool {
-        horizontalSizeClass == .compact
-    }
-
-    private var layout: BridgeAIDashboardLayout {
-        isCompact ? .compact : .regular
-    }
+struct BridgeAIRootView: View {
+    @StateObject private var model = BridgeAIAppModel()
 
     var body: some View {
-        Group {
-            if isCompact {
-                NavigationStack {
-                    DashboardScrollView(model: model, layout: layout)
-                        .navigationTitle(model.overview.appName)
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button {
-                                    showSupportSheet = true
-                                } label: {
-                                    Label("Support", systemImage: "lifepreserver")
-                                }
-                            }
-                        }
-                }
-                .sheet(isPresented: $showSupportSheet) {
-                    SupportDirectoryView(resources: model.supportResources)
-                }
-            } else {
-                HStack(spacing: 0) {
-                    SidebarPanel(
-                        overview: model.overview,
-                        contacts: model.trustedContacts,
-                        resources: model.supportResources
-                    )
-                    .frame(width: 320)
-                    .background(BridgeAIColors.midnight.gradient(inset: true))
-                    .foregroundStyle(.white)
-                    .ignoresSafeArea()
+        TabView(selection: $model.selectedTab) {
+            AssistiveSupportView(model: model.assistiveModel)
+                .tabItem { Label("Assistive", systemImage: "heart.text.square") }
+                .tag(BridgeAIAppModel.Tab.assistive)
 
-                    DashboardScrollView(model: model, layout: layout)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(BridgeAIColors.surfaceBackground)
-                }
-                .background(BridgeAIColors.surfaceBackground)
-            }
+            EmergencyAutomationView(model: model.emergencyModel)
+                .tabItem { Label("Emergency", systemImage: "bolt.trianglebadge.exclamationmark") }
+                .tag(BridgeAIAppModel.Tab.emergency)
+
+            LocationSafetyView(model: model.locationModel)
+                .tabItem { Label("Location", systemImage: "location.circle") }
+                .tag(BridgeAIAppModel.Tab.location)
+
+            CourseLibraryView(model: model.courseModel)
+                .tabItem { Label("Courses", systemImage: "book.closed") }
+                .tag(BridgeAIAppModel.Tab.courses)
         }
-        .background(BridgeAIColors.surfaceBackground.ignoresSafeArea())
+        .accentColor(BridgeAITheme.primary)
     }
 }
 
-// MARK: - Layout configuration
-struct BridgeAIDashboardLayout {
-    let isCompact: Bool
-    let horizontalPadding: CGFloat
-    let verticalPadding: CGFloat
-    let contentSpacing: CGFloat
-    let highlightSpacing: CGFloat
-    let highlightColumns: [GridItem]
-
-    static let compact = BridgeAIDashboardLayout(
-        isCompact: true,
-        horizontalPadding: 20,
-        verticalPadding: 24,
-        contentSpacing: 26,
-        highlightSpacing: 16,
-        highlightColumns: [
-            GridItem(.flexible(minimum: 140), spacing: 14, alignment: .top)
-        ]
-    )
-
-    static let regular = BridgeAIDashboardLayout(
-        isCompact: false,
-        horizontalPadding: 36,
-        verticalPadding: 40,
-        contentSpacing: 32,
-        highlightSpacing: 20,
-        highlightColumns: [
-            GridItem(.flexible(minimum: 180), spacing: 18, alignment: .top),
-            GridItem(.flexible(minimum: 180), spacing: 18, alignment: .top)
-        ]
-    )
-}
-
-// MARK: - Sidebar
+// MARK: - App Model
 @available(iOS 16.0, macOS 13.0, *)
-struct SidebarPanel: View {
-    let overview: BridgeAIOverview
-    let contacts: [TrustedContact]
-    let resources: [SupportResource]
-
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 32) {
-                VStack(alignment: .leading, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(BridgeAIColors.copper.gradient(inset: true))
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            Image(systemName: "waveform.path.ecg")
-                                .font(.system(size: 26, weight: .semibold))
-                                .foregroundStyle(.white)
-                        )
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(overview.appName)
-                            .font(.title2.weight(.semibold))
-                        Text(overview.tagline)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Trusted Circle")
-                        .font(.caption.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(contacts) { contact in
-                            HStack(alignment: .center, spacing: 12) {
-                                Circle()
-                                    .fill(BridgeAIColors.deepSea.opacity(0.35))
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        Image(systemName: contact.icon)
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundStyle(.white)
-                                    )
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(contact.name)
-                                        .font(.subheadline.weight(.semibold))
-                                    Text(contact.relationship)
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.65))
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(.white.opacity(0.08))
-                            )
-                        }
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Emergency Directory")
-                        .font(.caption.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(resources) { resource in
-                            HStack(alignment: .center, spacing: 12) {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(.white.opacity(0.14))
-                                    .frame(width: 38, height: 38)
-                                    .overlay(
-                                        Image(systemName: resource.icon)
-                                            .font(.system(size: 18, weight: .medium))
-                                            .foregroundStyle(.white)
-                                    )
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(resource.label)
-                                        .font(.subheadline.weight(.semibold))
-                                    Text(resource.detail)
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.65))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.vertical, 40)
-            .padding(.horizontal, 28)
-        }
+final class BridgeAIAppModel: ObservableObject {
+    enum Tab: Hashable {
+        case assistive
+        case emergency
+        case location
+        case courses
     }
+
+    @Published var selectedTab: Tab = .assistive
+    @Published var assistiveModel = AssistiveModel.sample()
+    @Published var emergencyModel = EmergencyModel.sample()
+    @Published var locationModel = LocationModel.sample()
+    @Published var courseModel = CourseModel.sample()
 }
 
-// MARK: - Dashboard content
+// MARK: - Assistive Page
 @available(iOS 16.0, macOS 13.0, *)
-struct DashboardScrollView: View {
-    @ObservedObject var model: BridgeAIDashboardModel
-    let layout: BridgeAIDashboardLayout
-
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: layout.contentSpacing) {
-                HeroBannerView(overview: model.overview, layout: layout)
-
-                MissionHighlightsView(highlights: model.highlights, layout: layout)
-
-                ForEach(model.capabilityGroups) { group in
-                    CapabilityGroupSection(group: group, layout: layout)
-                }
-
-                CoursesShowcaseView(courses: model.courses, layout: layout)
-
-                SupportResourcesFooter(resources: model.supportResources)
-            }
-            .padding(.horizontal, layout.horizontalPadding)
-            .padding(.vertical, layout.verticalPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(BridgeAIColors.surfaceBackground)
-    }
-}
-
-// MARK: - Hero
-@available(iOS 16.0, macOS 13.0, *)
-struct HeroBannerView: View {
-    let overview: BridgeAIOverview
-    let layout: BridgeAIDashboardLayout
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: layout.isCompact ? 28 : 32, style: .continuous)
-                .fill(BridgeAIColors.sunrise.gradient())
-                .overlay(alignment: .topTrailing) {
-                    Circle()
-                        .fill(BridgeAIColors.sunriseHighlight)
-                        .frame(width: layout.isCompact ? 140 : 190)
-                        .offset(x: layout.isCompact ? 40 : 60, y: layout.isCompact ? -60 : -80)
-                        .blur(radius: 24)
-                        .opacity(0.6)
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: layout.isCompact ? 28 : 32, style: .continuous)
-                        .stroke(BridgeAIColors.sunriseAccent.opacity(0.25), lineWidth: 1)
-                )
-
-            VStack(alignment: .leading, spacing: layout.isCompact ? 16 : 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(overview.tagline.uppercased())
-                        .font(.caption.weight(.semibold))
-                        .tracking(1.6)
-                        .foregroundStyle(BridgeAIColors.sunriseAccent.opacity(0.9))
-                    Text(overview.mission)
-                        .font(.system(size: layout.isCompact ? 28 : 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineSpacing(2)
-                }
-
-                Text(overview.introduction)
-                    .font(layout.isCompact ? .callout : .title3)
-                    .foregroundStyle(.white.opacity(0.88))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Divider()
-                    .background(.white.opacity(0.25))
-
-                HStack(alignment: .center, spacing: 16) {
-                    Label {
-                        Text("Preparedness in your pocket")
-                            .font(.subheadline.weight(.medium))
-                    } icon: {
-                        Image(systemName: "sparkle")
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, BridgeAIColors.sunriseAccent)
-                    }
-                    .labelStyle(BridgeAIIconLeadingLabelStyle())
-
-                    Spacer()
-
-                    Capsule(style: .continuous)
-                        .fill(.white.opacity(0.2))
-                        .frame(width: layout.isCompact ? 110 : 140, height: 34)
-                        .overlay(
-                            HStack(spacing: 6) {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                Text("Live ready")
-                                    .font(.footnote.weight(.semibold))
-                            }
-                            .foregroundStyle(.white)
-                        )
-                }
-            }
-            .padding(layout.isCompact ? 24 : 30)
-        }
-    }
-}
-
-// MARK: - Mission highlights
-@available(iOS 16.0, macOS 13.0, *)
-struct MissionHighlightsView: View {
-    let highlights: [MissionHighlight]
-    let layout: BridgeAIDashboardLayout
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Why BridgeAI Matters")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(BridgeAIColors.title)
-
-            LazyVGrid(columns: layout.highlightColumns, spacing: layout.highlightSpacing) {
-                ForEach(highlights) { highlight in
-                    HighlightCard(highlight: highlight, isCompact: layout.isCompact)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Label styles
-struct BridgeAIIconLeadingLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            configuration.icon
-            configuration.title
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct HighlightCard: View {
-    let highlight: MissionHighlight
-    let isCompact: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Circle()
-                .fill(highlight.accent.gradient(inset: true))
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Image(systemName: highlight.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                )
-
-            Text(highlight.title)
-                .font(.headline)
-                .foregroundStyle(BridgeAIColors.title)
-
-            Text(highlight.detail)
-                .font(isCompact ? .footnote : .callout)
-                .foregroundStyle(BridgeAIColors.body)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(isCompact ? 18 : 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(BridgeAIColors.lavender)
-                .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 16, x: 0, y: 12)
-        )
-    }
-}
-
-// MARK: - Capability sections
-@available(iOS 16.0, macOS 13.0, *)
-struct CapabilityGroupSection: View {
-    let group: CapabilityGroup
-    let layout: BridgeAIDashboardLayout
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .center, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(group.gradient.gradient())
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            Image(systemName: group.icon)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.white)
-                        )
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(group.title)
-                            .font(.title3.weight(.semibold))
-                        Text(group.caption)
-                            .font(.callout)
-                            .foregroundStyle(BridgeAIColors.body)
-                    }
-                }
-
-                Text(group.context)
-                    .font(.subheadline)
-                    .foregroundStyle(BridgeAIColors.bodySecondary)
-            }
-
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(group.features) { feature in
-                    CapabilityFeatureRow(feature: feature, accent: group.gradient)
-                }
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(BridgeAIColors.lavender)
-                    .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 16, x: 0, y: 10)
-            )
-
-            if let action = group.cta {
-                HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: action.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(group.gradient.primary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(action.label)
-                            .font(.subheadline.weight(.semibold))
-                        Text(action.detail)
-                            .font(.footnote)
-                            .foregroundStyle(BridgeAIColors.bodySecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(BridgeAIColors.bodySecondary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(group.gradient.primary.opacity(0.12))
-                )
-            }
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct CapabilityFeatureRow: View {
-    let feature: CapabilityFeature
-    let accent: BridgeAIGradientSwatch
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Circle()
-                .fill(accent.gradient(inset: true))
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Image(systemName: feature.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                )
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(feature.title)
-                    .font(.headline)
-                Text(feature.detail)
-                    .font(.subheadline)
-                    .foregroundStyle(BridgeAIColors.bodySecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-}
-
-// MARK: - Courses showcase
-@available(iOS 16.0, macOS 13.0, *)
-struct CoursesShowcaseView: View {
-    let courses: [CourseModule]
-    let layout: BridgeAIDashboardLayout
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Courses to Build Confidence")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(BridgeAIColors.title)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 18) {
-                    ForEach(courses) { course in
-                        CourseCard(course: course, isCompact: layout.isCompact)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct CourseCard: View {
-    let course: CourseModule
-    let isCompact: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 12) {
-                Circle()
-                    .fill(course.accent.gradient(inset: true))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: course.icon)
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(.white)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(course.badge)
-                        .font(.caption.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(course.accent.primary)
-                    Text(course.title)
-                        .font(.headline)
-                }
-            }
-
-            Text(course.description)
-                .font(isCompact ? .footnote : .callout)
-                .foregroundStyle(BridgeAIColors.bodySecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-
-            HStack(alignment: .center, spacing: 8) {
-                Image(systemName: "clock")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(BridgeAIColors.bodySecondary)
-                Text(course.duration)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(BridgeAIColors.bodySecondary)
-                Spacer()
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(course.accent.primary)
-            }
-        }
-        .padding(isCompact ? 18 : 22)
-        .frame(width: isCompact ? 240 : 280, height: isCompact ? 200 : 220)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(BridgeAIColors.lavender)
-                .shadow(color: BridgeAIColors.shadow.opacity(0.08), radius: 14, x: 0, y: 10)
-        )
-    }
-}
-
-// MARK: - Support footer
-@available(iOS 16.0, macOS 13.0, *)
-struct SupportResourcesFooter: View {
-    let resources: [SupportResource]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Ready When It Matters")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(BridgeAIColors.title)
-
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(resources.prefix(3)) { resource in
-                    HStack(alignment: .center, spacing: 14) {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(resource.tint.gradient(inset: true))
-                            .frame(width: 46, height: 46)
-                            .overlay(
-                                Image(systemName: resource.icon)
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .foregroundStyle(.white)
-                            )
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(resource.label)
-                                .font(.headline)
-                            Text(resource.detail)
-                                .font(.subheadline)
-                                .foregroundStyle(BridgeAIColors.bodySecondary)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(BridgeAIColors.midnight.gradient())
-        )
-        .foregroundStyle(.white)
-    }
-}
-
-// MARK: - Support directory sheet
-@available(iOS 16.0, macOS 13.0, *)
-struct SupportDirectoryView: View {
-    let resources: [SupportResource]
-    @Environment(\.dismiss) private var dismiss
+struct AssistiveSupportView: View {
+    @ObservedObject var model: AssistiveModel
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("Emergency Services") {
-                    ForEach(resources) { resource in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(resource.label)
-                                .font(.headline)
-                            Text(resource.detail)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 6)
-                    }
+            ScrollView {
+                VStack(spacing: 28) {
+                    AssistiveHeroCard(overview: model.overview)
+
+                    AssistiveScenarioSection(scenarios: $model.scenarios)
+
+                    DisasterPlanSection(plans: model.disasterPlans)
+
+                    SupplyCartSection(items: $model.supplyItems)
+
+                    CalmModeSection(settings: $model.calmSettings)
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 28)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Support Directory")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+            .background(BridgeAITheme.background.ignoresSafeArea())
+            .navigationTitle("Assistive")
+            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
         }
-#if os(iOS)
-        .presentationDetents([.medium, .large])
-#endif
     }
 }
 
-// MARK: - View model & data
 @available(iOS 16.0, macOS 13.0, *)
-final class BridgeAIDashboardModel: ObservableObject {
-    @Published var overview: BridgeAIOverview
-    @Published var highlights: [MissionHighlight]
-    @Published var capabilityGroups: [CapabilityGroup]
-    @Published var courses: [CourseModule]
-    @Published var supportResources: [SupportResource]
-    @Published var trustedContacts: [TrustedContact]
+struct AssistiveHeroCard: View {
+    let overview: AssistiveOverview
 
-    init(
-        overview: BridgeAIOverview,
-        highlights: [MissionHighlight],
-        capabilityGroups: [CapabilityGroup],
-        courses: [CourseModule],
-        supportResources: [SupportResource],
-        trustedContacts: [TrustedContact]
-    ) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(overview.title)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Text(overview.summary)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+                .overlay(.white.opacity(0.2))
+
+            HStack(spacing: 18) {
+                MetricBadge(icon: "clock.badge.checkmark", title: "Response Coach", detail: "Step-by-step prompts for urgent care situations.")
+
+                MetricBadge(icon: "person.text.rectangle", title: "Multi-Sensory", detail: "Readable, audible, and haptic cues reduce panic.")
+            }
+        }
+        .padding(26)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(BridgeAITheme.primaryGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(.white.opacity(0.1))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct MetricBadge: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(
+                    Circle()
+                        .fill(.white.opacity(0.12))
+                )
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.white.opacity(0.06))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct AssistiveScenarioSection: View {
+    @Binding var scenarios: [CrisisScenario]
+
+    var body: some View {
+        BridgeAISection(title: "Guided Scenarios", subtitle: "Practical walkthroughs for unfolding situations.") {
+            ForEach($scenarios) { $scenario in
+                DisclosureGroup(isExpanded: $scenario.isExpanded) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(scenario.steps.enumerated()), id: \.(offset)) { index, step in
+                            HStack(alignment: .top, spacing: 12) {
+                                Circle()
+                                    .fill(BridgeAITheme.primary.opacity(0.12))
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        Text("\(index + 1)")
+                                            .font(.footnote.weight(.semibold))
+                                            .foregroundStyle(BridgeAITheme.primary)
+                                    )
+
+                                Text(step)
+                                    .font(.callout)
+                                    .foregroundStyle(BridgeAITheme.textPrimary)
+                            }
+                        }
+
+                        Button(action: {}) {
+                            Label(scenario.actionLabel, systemImage: "phone")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(BridgeAIActionButtonStyle())
+                    }
+                    .padding(.top, 12)
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(scenario.title)
+                                .font(.headline)
+                                .foregroundStyle(BridgeAITheme.textPrimary)
+                            Spacer()
+                            Text(scenario.duration)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(BridgeAITheme.accent)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(BridgeAITheme.accent.opacity(0.12))
+                                )
+                        }
+
+                        Text(scenario.summary)
+                            .font(.subheadline)
+                            .foregroundStyle(BridgeAITheme.textSecondary)
+                    }
+                }
+                .disclosureGroupStyle(BridgeAICardDisclosureStyle())
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct DisasterPlanSection: View {
+    let plans: [DisasterPlan]
+
+    var body: some View {
+        BridgeAISection(title: "Disaster Readiness", subtitle: "Before, during, and after playbooks with live inputs.") {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 16),
+                GridItem(.flexible(), spacing: 16)
+            ], spacing: 16) {
+                ForEach(plans) { plan in
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text(plan.name)
+                                .font(.headline)
+                                .foregroundStyle(BridgeAITheme.textPrimary)
+                            Spacer()
+                            Label(plan.alertLevel, systemImage: "antenna.radiowaves.left.and.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(plan.alertColor)
+                                .labelStyle(.trailingIcon)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(plan.checklist.prefix(3), id: \.self) { item in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(BridgeAITheme.primary)
+                                        .font(.caption)
+                                    Text(item)
+                                        .font(.footnote)
+                                        .foregroundStyle(BridgeAITheme.textSecondary)
+                                }
+                            }
+                        }
+
+                        HStack {
+                            Image(systemName: "cloud.sun")
+                            Text("Live feed: \(plan.dataSource)")
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(BridgeAITheme.textMuted)
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct SupplyCartSection: View {
+    @Binding var items: [SupplyItem]
+
+    var body: some View {
+        BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
+            VStack(spacing: 12) {
+                ForEach($items) { $item in
+                    HStack(spacing: 14) {
+                        Button {
+                            item.isOwned.toggle()
+                        } label: {
+                            Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
+                                .font(.title3)
+                                .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.name)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BridgeAITheme.textPrimary)
+                            Text(item.detail)
+                                .font(.caption)
+                                .foregroundStyle(BridgeAITheme.textSecondary)
+                        }
+
+                        Spacer()
+
+                        if let reminder = item.reminderDate {
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text(reminder)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(BridgeAITheme.accent)
+                                Text("Expiry check")
+                                    .font(.caption2)
+                                    .foregroundStyle(BridgeAITheme.textMuted)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CalmModeSection: View {
+    @Binding var settings: CalmSettings
+
+    var body: some View {
+        BridgeAISection(title: "Calm Mode", subtitle: "Accessibility-first cues to lower stress.") {
+            VStack(alignment: .leading, spacing: 18) {
+                Toggle(isOn: $settings.voiceGuidance) {
+                    Label("Soothing narration", systemImage: "ear.badge.waveform")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $settings.hapticSupport) {
+                    Label("Rhythmic haptics", systemImage: "waveform.path")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $settings.highContrast) {
+                    Label("High-contrast cards", systemImage: "circle.lefthalf.filled")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Stepper(value: $settings.breathingPace, in: 4...12) {
+                    HStack {
+                        Text("Guided breathing pace")
+                        Spacer()
+                        Text("\(settings.breathingPace) cpm")
+                            .foregroundStyle(BridgeAITheme.accent)
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(BridgeAITheme.textPrimary)
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(BridgeAITheme.surface)
+            )
+        }
+    }
+}
+
+// MARK: - Emergency Page
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyAutomationView: View {
+    @ObservedObject var model: EmergencyModel
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 28) {
+                    EmergencyStatusCard(model: model)
+
+                    EmergencyActionSection(actions: $model.actions)
+
+                    EscalationPathSection(pathways: $model.pathways)
+
+                    EvidenceCaptureSection(settings: $model.evidenceSettings)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 28)
+            }
+            .background(BridgeAITheme.background.ignoresSafeArea())
+            .navigationTitle("Emergency")
+            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyStatusCard: View {
+    @ObservedObject var model: EmergencyModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Automation readiness")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Trigger phrase", systemImage: "mic")
+                        .font(.callout.weight(.semibold))
+                    Spacer()
+                    Text(model.triggerPhrase)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Divider().overlay(.white.opacity(0.2))
+
+                HStack {
+                    Label("Primary channel", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.callout.weight(.semibold))
+                    Spacer()
+                    Text(model.primaryChannel)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+            }
+
+            Button("Run live drill") {
+                model.scheduleDrill()
+            }
+            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+        }
+        .padding(26)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(BridgeAITheme.emergencyGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(.white.opacity(0.1))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyActionSection: View {
+    @Binding var actions: [EmergencyAction]
+
+    var body: some View {
+        BridgeAISection(title: "Immediate Actions", subtitle: "What fires automatically the second a trigger is heard.") {
+            VStack(spacing: 16) {
+                ForEach($actions) { $action in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .center) {
+                            Image(systemName: action.icon)
+                                .font(.title3)
+                                .foregroundStyle(BridgeAITheme.primary)
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    Circle().fill(BridgeAITheme.primary.opacity(0.12))
+                                )
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(action.title)
+                                    .font(.headline)
+                                Text(action.detail)
+                                    .font(.footnote)
+                                    .foregroundStyle(BridgeAITheme.textSecondary)
+                            }
+
+                            Spacer()
+
+                            Toggle("", isOn: $action.isEnabled)
+                                .labelsHidden()
+                                .toggleStyle(BridgeAISwitchStyle())
+                        }
+
+                        if action.requiresContactSelection {
+                            Picker("Escalate to", selection: $action.contact) {
+                                ForEach(action.availableContacts, id: \.self) { contact in
+                                    Text(contact).tag(contact)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.footnote)
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EscalationPathSection: View {
+    @Binding var pathways: [EscalationPathway]
+
+    var body: some View {
+        BridgeAISection(title: "Escalation Path", subtitle: "How BridgeAI adjusts when you stop responding.") {
+            VStack(spacing: 16) {
+                ForEach($pathways) { $path in
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(path.stage)
+                                .font(.headline)
+                            Spacer()
+                            Text(path.delay)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BridgeAITheme.accent)
+                        }
+
+                        Text(path.summary)
+                            .font(.footnote)
+                            .foregroundStyle(BridgeAITheme.textSecondary)
+
+                        if !path.actions.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(path.actions, id: \.self) { action in
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "arrow.right.circle.fill")
+                                            .foregroundStyle(BridgeAITheme.primary)
+                                            .font(.caption)
+                                        Text(action)
+                                            .font(.caption)
+                                            .foregroundStyle(BridgeAITheme.textMuted)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EvidenceCaptureSection: View {
+    @Binding var settings: EvidenceSettings
+
+    var body: some View {
+        BridgeAISection(title: "Evidence Capture", subtitle: "Gather context silently and securely.") {
+            VStack(alignment: .leading, spacing: 18) {
+                Toggle(isOn: $settings.audioEnabled) {
+                    Label("30-second audio snapshot", systemImage: "waveform.and.magnifyingglass")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $settings.videoEnabled) {
+                    Label("Front camera clip", systemImage: "video")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $settings.smsFallback) {
+                    Label("SMS fallback when offline", systemImage: "message.badge.waveform")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Picker("Retention", selection: $settings.retention) {
+                    ForEach(EvidenceSettings.Retention.allCases, id: \.self) { retention in
+                        Text(retention.label).tag(retention)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(BridgeAITheme.surface)
+            )
+        }
+    }
+}
+
+// MARK: - Location Page
+@available(iOS 16.0, macOS 13.0, *)
+struct LocationSafetyView: View {
+    @ObservedObject var model: LocationModel
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 28) {
+                    LocationHeroCard(status: model.status)
+
+                    SafeZoneSection(zones: $model.safeZones)
+
+                    LocationAutomationSection(automation: $model.automation)
+
+                    NearbySupportSection(services: model.nearbyServices)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 28)
+            }
+            .background(BridgeAITheme.background.ignoresSafeArea())
+            .navigationTitle("Location")
+            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct LocationHeroCard: View {
+    let status: LocationStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Secure sharing")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "location.fill")
+                        .foregroundStyle(.white)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(status.currentLabel)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text(status.updated)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                }
+
+                Divider().overlay(.white.opacity(0.2))
+
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.shield")
+                        .foregroundStyle(.white)
+                    Text("Data encrypted, auto-expiring \(status.autoExpireMinutes) min after incident resolution.")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+            }
+
+            Button("Share live trail") {}
+                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+        }
+        .padding(26)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(BridgeAITheme.primaryGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(.white.opacity(0.1))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct SafeZoneSection: View {
+    @Binding var zones: [SafeZone]
+
+    var body: some View {
+        BridgeAISection(title: "Safe Zones", subtitle: "Watch doors, routes, and daily check-ins.") {
+            VStack(spacing: 14) {
+                ForEach($zones) { $zone in
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(zone.name)
+                                .font(.headline)
+                            Spacer()
+                            Toggle("", isOn: $zone.isMonitoring)
+                                .labelsHidden()
+                                .toggleStyle(BridgeAISwitchStyle())
+                        }
+
+                        Text(zone.window)
+                            .font(.footnote)
+                            .foregroundStyle(BridgeAITheme.textSecondary)
+
+                        if let note = zone.note {
+                            Text(note)
+                                .font(.caption)
+                                .foregroundStyle(BridgeAITheme.textMuted)
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct LocationAutomationSection: View {
+    @Binding var automation: LocationAutomation
+
+    var body: some View {
+        BridgeAISection(title: "Escalation Logic", subtitle: "Escalate when movement stops or deviates.") {
+            VStack(alignment: .leading, spacing: 18) {
+                Toggle(isOn: $automation.motionCheck) {
+                    Label("Detect prolonged stillness", systemImage: "figure.stand")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $automation.routeDeviation) {
+                    Label("Alert when off-route", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Toggle(isOn: $automation.lowBatteryFailsafe) {
+                    Label("Escalate under 10% battery", systemImage: "battery.25")
+                }
+                .toggleStyle(BridgeAISwitchStyle())
+
+                Stepper(value: $automation.checkInterval, in: 1...10) {
+                    HStack {
+                        Text("Check interval")
+                        Spacer()
+                        Text("Every \(automation.checkInterval) min")
+                            .foregroundStyle(BridgeAITheme.accent)
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(BridgeAITheme.textPrimary)
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(BridgeAITheme.surface)
+            )
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct NearbySupportSection: View {
+    let services: [NearbyService]
+
+    var body: some View {
+        BridgeAISection(title: "Nearby Support", subtitle: "Hospitals, stations, and shelters filtered to your scenario.") {
+            VStack(spacing: 14) {
+                ForEach(services) { service in
+                    HStack(alignment: .center, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(BridgeAITheme.primary.opacity(0.12))
+                            .frame(width: 48, height: 48)
+                            .overlay(
+                                Image(systemName: service.icon)
+                                    .font(.title3)
+                                    .foregroundStyle(BridgeAITheme.primary)
+                            )
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(service.name)
+                                .font(.subheadline.weight(.semibold))
+                            Text("\(service.distance) • updated \(service.updated)")
+                                .font(.caption)
+                                .foregroundStyle(BridgeAITheme.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(BridgeAITheme.textMuted)
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Courses Page
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseLibraryView: View {
+    @ObservedObject var model: CourseModel
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 28) {
+                    CourseHeroCard(stats: model.stats)
+
+                    FeaturedCourseSection(featured: model.featured)
+
+                    CourseListSection(courses: $model.courses)
+
+                    CertificationSection(partners: model.partners)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 28)
+            }
+            .background(BridgeAITheme.background.ignoresSafeArea())
+            .navigationTitle("Courses")
+            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseHeroCard: View {
+    let stats: CourseStats
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Build readiness through practice")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(stats.completed) modules")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("Completed")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(stats.streak) day streak")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("Keep it going")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Button("Continue practice") {}
+                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+        }
+        .padding(26)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(BridgeAITheme.merlotGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(.white.opacity(0.1))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct FeaturedCourseSection: View {
+    let featured: CourseModule
+
+    var body: some View {
+        BridgeAISection(title: "Spotlight Simulation", subtitle: "Hands-on drills that adapt to your responses.") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(featured.title)
+                    .font(.title3.weight(.semibold))
+
+                Text(featured.description)
+                    .font(.footnote)
+                    .foregroundStyle(BridgeAITheme.textSecondary)
+
+                HStack {
+                    Label("Duration", systemImage: "timer")
+                    Spacer()
+                    Text(featured.duration)
+                        .foregroundStyle(BridgeAITheme.accent)
+                }
+                .font(.caption.weight(.semibold))
+
+                ProgressView(value: featured.progress)
+                    .tint(BridgeAITheme.primary)
+                    .shadow(color: BridgeAITheme.primary.opacity(0.2), radius: 8, x: 0, y: 4)
+
+                Button("Resume module") {}
+                    .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(BridgeAITheme.surface)
+            )
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseListSection: View {
+    @Binding var courses: [CourseModule]
+
+    var body: some View {
+        BridgeAISection(title: "Micro Lessons", subtitle: "Bite-sized practice with knowledge checks.") {
+            VStack(spacing: 14) {
+                ForEach($courses) { $course in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(course.title)
+                                    .font(.headline)
+                                Text(course.focusArea)
+                                    .font(.caption)
+                                    .foregroundStyle(BridgeAITheme.textMuted)
+                            }
+                            Spacer()
+                            Text(course.badge.uppercased())
+                                .font(.caption2.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(BridgeAITheme.primary)
+                                )
+                        }
+
+                        ProgressView(value: course.progress)
+                            .tint(BridgeAITheme.primary)
+
+                        HStack {
+                            Label("Quiz", systemImage: "checkmark.shield")
+                            Spacer()
+                            Text("\(course.duration) • \(course.level)")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(BridgeAITheme.textSecondary)
+
+                        Button(course.isDownloaded ? "Remove download" : "Download for offline") {
+                            course.isDownloaded.toggle()
+                        }
+                        .buttonStyle(BridgeAITertiaryButtonStyle())
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CertificationSection: View {
+    let partners: [CertificationPartner]
+
+    var body: some View {
+        BridgeAISection(title: "Certifications", subtitle: "Advance with recognized partners.") {
+            VStack(spacing: 16) {
+                ForEach(partners) { partner in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(partner.name)
+                                .font(.subheadline.weight(.semibold))
+                            Text(partner.focus)
+                                .font(.caption)
+                                .foregroundStyle(BridgeAITheme.textSecondary)
+                        }
+                        Spacer()
+                        Button("View pathway") {}
+                            .buttonStyle(BridgeAITertiaryButtonStyle())
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Shared Components
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeAISection<Content: View>: View {
+    let title: String
+    let subtitle: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(BridgeAITheme.textMuted)
+            }
+
+            content
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeAIActionButtonStyle: ButtonStyle {
+    var fullWidth: Bool = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(configuration.isPressed ? BridgeAITheme.primary.opacity(0.8) : BridgeAITheme.primary)
+            )
+            .shadow(color: BridgeAITheme.primary.opacity(configuration.isPressed ? 0 : 0.25), radius: 12, x: 0, y: 8)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeAITertiaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(BridgeAITheme.primary)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(BridgeAITheme.primary.opacity(configuration.isPressed ? 0.16 : 0.12))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(BridgeAITheme.primary.opacity(0.2), lineWidth: 1)
+            )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeAISwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.label
+                .foregroundStyle(BridgeAITheme.textPrimary)
+            Spacer()
+            Toggle(isOn: configuration.$isOn) {
+                EmptyView()
+            }
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(BridgeAITheme.primary)
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct BridgeAICardDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: { configuration.isExpanded.toggle() }) {
+                HStack {
+                    configuration.label
+                    Spacer()
+                    Image(systemName: configuration.isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(BridgeAITheme.textMuted)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if configuration.isExpanded {
+                configuration.content
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct TrailingIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.title
+            Spacer(minLength: 8)
+            configuration.icon
+        }
+    }
+}
+
+extension LabelStyle where Self == TrailingIconLabelStyle {
+    static var trailingIcon: TrailingIconLabelStyle { TrailingIconLabelStyle() }
+}
+
+// MARK: - Data Models
+struct AssistiveOverview {
+    let title: String
+    let summary: String
+}
+
+struct CrisisScenario: Identifiable {
+    let id = UUID()
+    let title: String
+    let summary: String
+    let duration: String
+    let actionLabel: String
+    var steps: [String]
+    var isExpanded: Bool = false
+}
+
+struct DisasterPlan: Identifiable {
+    let id = UUID()
+    let name: String
+    let alertLevel: String
+    let alertColor: Color
+    let dataSource: String
+    let checklist: [String]
+}
+
+struct SupplyItem: Identifiable {
+    let id = UUID()
+    let name: String
+    let detail: String
+    var isOwned: Bool
+    var reminderDate: String?
+}
+
+struct CalmSettings {
+    var voiceGuidance: Bool
+    var hapticSupport: Bool
+    var highContrast: Bool
+    var breathingPace: Int
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+final class AssistiveModel: ObservableObject {
+    @Published var overview: AssistiveOverview
+    @Published var scenarios: [CrisisScenario]
+    @Published var disasterPlans: [DisasterPlan]
+    @Published var supplyItems: [SupplyItem]
+    @Published var calmSettings: CalmSettings
+
+    init(overview: AssistiveOverview, scenarios: [CrisisScenario], disasterPlans: [DisasterPlan], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
         self.overview = overview
-        self.highlights = highlights
-        self.capabilityGroups = capabilityGroups
-        self.courses = courses
-        self.supportResources = supportResources
-        self.trustedContacts = trustedContacts
+        self.scenarios = scenarios
+        self.disasterPlans = disasterPlans
+        self.supplyItems = supplyItems
+        self.calmSettings = calmSettings
     }
 
-    static func sample() -> BridgeAIDashboardModel {
-        BridgeAIDashboardModel(
-            overview: .init(
-                appName: "BridgeAI",
-                tagline: "The bridge between you and first responders",
-                mission: "Because every second matters.",
-                introduction: "BridgeAI keeps you, your family, and your community in sync before, during, and after emergencies. From calm coaching to silent rescue protocols, the app adapts to how much time you have and how much help you need.",
-                pledge: "We protect privacy, honor consent, and operate with verified data sources in every response."
+    static func sample() -> AssistiveModel {
+        AssistiveModel(
+            overview: AssistiveOverview(
+                title: "Guidance when seconds count",
+                summary: "Follow adaptive prompts to keep someone safe before first responders arrive."
             ),
-            highlights: [
-                .init(
-                    title: "Nationwide Coverage",
-                    detail: "Real-time FEMA and NOAA signals pair with hyperlocal insights so you know what's happening before anyone else.",
-                    icon: "antenna.radiowaves.left.and.right",
-                    accent: .init(primary: BridgeAIColors.deepSea, secondary: BridgeAIColors.copper.primary)
+            scenarios: [
+                CrisisScenario(
+                    title: "Support during a seizure",
+                    summary: "Keep breathing clear, time the episode, and check for recovery signs.",
+                    duration: "4 min",
+                    actionLabel: "Call emergency services",
+                    steps: [
+                        "Ease the person to the ground and roll onto their side.",
+                        "Protect the head with something soft; loosen tight clothing.",
+                        "Track the length of the seizure inside the app timer.",
+                        "If activity passes five minutes or repeats, escalate immediately."
+                    ]
                 ),
-                .init(
-                    title: "Trusted Escalation",
-                    detail: "BridgeAI escalates quietly or assertively, sharing only the information you've approved with responders and loved ones.",
-                    icon: "shield.lefthalf.fill",
-                    accent: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.lavender)
+                CrisisScenario(
+                    title: "Severe allergic reaction",
+                    summary: "Spot breathing trouble, deploy epinephrine, and prepare for EMS.",
+                    duration: "3 min",
+                    actionLabel: "Alert nearest hospital",
+                    steps: [
+                        "Check airway and remove any visible trigger if safe.",
+                        "Administer auto-injector and note the time.",
+                        "Start Calm Mode instructions to steady breathing.",
+                        "Prepare for a second dose if symptoms persist in five minutes."
+                    ]
                 ),
-                .init(
-                    title: "Human-Centered Guidance",
-                    detail: "Step-by-step coaching uses plain language, accessibility cues, and calming tone to keep panic low.",
-                    icon: "heart.text.square",
-                    accent: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.sunriseAccent)
-                ),
-                .init(
-                    title: "Lifelong Learning",
-                    detail: "Interactive lessons and family-friendly drills transform everyday routines into muscle memory for emergencies.",
-                    icon: "graduationcap.fill",
-                    accent: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.cerulean.primary)
+                CrisisScenario(
+                    title: "Flash flood response",
+                    summary: "Move to higher ground and secure essential gear for evacuation.",
+                    duration: "6 min",
+                    actionLabel: "Message family safety list",
+                    steps: [
+                        "Collect medical kits, water, and identification documents.",
+                        "Power down utilities if advised by authorities.",
+                        "Move to a higher floor or roof with bright markers.",
+                        "Switch communications to text for reliable status updates."
+                    ]
                 )
             ],
-            capabilityGroups: [
-                .assistiveSupport,
-                .emergencyAutomation,
-                .locationIntelligence,
-                .courseLibrary
+            disasterPlans: [
+                DisasterPlan(
+                    name: "Tornado shelter plan",
+                    alertLevel: "Warning", alertColor: BridgeAITheme.accent,
+                    dataSource: "NOAA feed",
+                    checklist: [
+                        "Move to the lowest interior room away from windows.",
+                        "Put on helmets or head protection for all members.",
+                        "Send automated status to your trusted contacts."
+                    ]
+                ),
+                DisasterPlan(
+                    name: "Wildfire evacuation",
+                    alertLevel: "Watch", alertColor: BridgeAITheme.primary,
+                    dataSource: "FEMA alerts",
+                    checklist: [
+                        "Seal vents, close windows, and keep go-bag by the door.",
+                        "Load evacuation route with live traffic from DOT.",
+                        "Enable smoke trigger for indoor air quality monitor."
+                    ]
+                ),
+                DisasterPlan(
+                    name: "Earthquake aftermath",
+                    alertLevel: "Advisory", alertColor: BridgeAITheme.textSecondary,
+                    dataSource: "USGS updates",
+                    checklist: [
+                        "Check gas, water, and electrical lines for damage.",
+                        "Photograph structural changes for insurance.",
+                        "Locate community shelters and register arrival."
+                    ]
+                ),
+                DisasterPlan(
+                    name: "Extended outage",
+                    alertLevel: "Monitor", alertColor: BridgeAITheme.textSecondary,
+                    dataSource: "Local utility",
+                    checklist: [
+                        "Track perishable food temperature every two hours.",
+                        "Rotate battery packs and maintain device charge.",
+                        "Share location heartbeat every 30 minutes."
+                    ]
+                )
             ],
-            courses: CourseModule.samples,
-            supportResources: SupportResource.samples,
-            trustedContacts: [
-                .init(name: "Jordan Patel", relationship: "Partner", icon: "figure.stand") ,
-                .init(name: "Mom", relationship: "Primary contact", icon: "person.fill"),
-                .init(name: "Captain Ruiz", relationship: "Local fire marshal", icon: "figure.wave")
+            supplyItems: [
+                SupplyItem(name: "Dual-purpose first aid kit", detail: "Include antihistamines, gloves, gauze, tourniquet.", isOwned: true, reminderDate: "Check in 45 days"),
+                SupplyItem(name: "Portable water filters", detail: "Two-stage filters sized for four people.", isOwned: false, reminderDate: nil),
+                SupplyItem(name: "Spare power banks", detail: "Keep above 80% charge, rotate monthly.", isOwned: true, reminderDate: "Test on Apr 12"),
+                SupplyItem(name: "Emergency blankets", detail: "Vacuum sealed, heat reflective.", isOwned: false, reminderDate: nil)
+            ],
+            calmSettings: CalmSettings(voiceGuidance: true, hapticSupport: true, highContrast: false, breathingPace: 6)
+        )
+    }
+}
+
+struct EmergencyAction: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let icon: String
+    var isEnabled: Bool
+    var requiresContactSelection: Bool
+    var contact: String
+    var availableContacts: [String]
+}
+
+struct EscalationPathway: Identifiable {
+    let id = UUID()
+    let stage: String
+    let delay: String
+    let summary: String
+    var actions: [String]
+}
+
+struct EvidenceSettings {
+    enum Retention: CaseIterable {
+        case twelveHours
+        case twentyFourHours
+        case threeDays
+
+        var label: String {
+            switch self {
+            case .twelveHours: return "12h"
+            case .twentyFourHours: return "24h"
+            case .threeDays: return "3d"
+            }
+        }
+    }
+
+    var audioEnabled: Bool
+    var videoEnabled: Bool
+    var smsFallback: Bool
+    var retention: Retention
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+final class EmergencyModel: ObservableObject {
+    @Published var triggerPhrase: String
+    @Published var primaryChannel: String
+    @Published var actions: [EmergencyAction]
+    @Published var pathways: [EscalationPathway]
+    @Published var evidenceSettings: EvidenceSettings
+
+    init(triggerPhrase: String, primaryChannel: String, actions: [EmergencyAction], pathways: [EscalationPathway], evidenceSettings: EvidenceSettings) {
+        self.triggerPhrase = triggerPhrase
+        self.primaryChannel = primaryChannel
+        self.actions = actions
+        self.pathways = pathways
+        self.evidenceSettings = evidenceSettings
+    }
+
+    func scheduleDrill() {
+        // Placeholder for scheduling a drill notification or workflow
+    }
+
+    static func sample() -> EmergencyModel {
+        EmergencyModel(
+            triggerPhrase: "Help me now",
+            primaryChannel: "911 bridge + 3 trusted contacts",
+            actions: [
+                EmergencyAction(
+                    title: "Dial emergency services",
+                    detail: "Places a call and transmits your live location.",
+                    icon: "phone.fill.arrow.up.right",
+                    isEnabled: true,
+                    requiresContactSelection: false,
+                    contact: "",
+                    availableContacts: []
+                ),
+                EmergencyAction(
+                    title: "Notify trusted circle",
+                    detail: "Sends SMS with GPS trail and situation summary.",
+                    icon: "person.3.sequence",
+                    isEnabled: true,
+                    requiresContactSelection: true,
+                    contact: "Taylor – Partner",
+                    availableContacts: ["Taylor – Partner", "Jordan – Parent", "Alex – Roommate"]
+                ),
+                EmergencyAction(
+                    title: "Live coaching",
+                    detail: "Keeps a two-way voice link open for instructions.",
+                    icon: "wave.3.right",
+                    isEnabled: true,
+                    requiresContactSelection: false,
+                    contact: "",
+                    availableContacts: []
+                ),
+                EmergencyAction(
+                    title: "Record encrypted clip",
+                    detail: "Captures 20s audio/video evidence with secure storage.",
+                    icon: "video.badge.waveform",
+                    isEnabled: false,
+                    requiresContactSelection: false,
+                    contact: "",
+                    availableContacts: []
+                )
+            ],
+            pathways: [
+                EscalationPathway(
+                    stage: "Stage 1",
+                    delay: "30 sec",
+                    summary: "Verifies response by requesting voice or tap input.",
+                    actions: ["Send silent prompt", "Ping wearable for tap confirmation"]
+                ),
+                EscalationPathway(
+                    stage: "Stage 2",
+                    delay: "90 sec",
+                    summary: "No response triggers silent background mode.",
+                    actions: ["Enable discreet recording", "Share coordinates with dispatch"]
+                ),
+                EscalationPathway(
+                    stage: "Stage 3",
+                    delay: "3 min",
+                    summary: "Notify secondary contact list and mark device as compromised.",
+                    actions: ["Send safe word override instructions", "Pulse status every 60s"]
+                )
+            ],
+            evidenceSettings: EvidenceSettings(
+                audioEnabled: true,
+                videoEnabled: false,
+                smsFallback: true,
+                retention: .twentyFourHours
+            )
+        )
+    }
+}
+
+struct LocationStatus {
+    let currentLabel: String
+    let updated: String
+    let autoExpireMinutes: Int
+}
+
+struct SafeZone: Identifiable {
+    let id = UUID()
+    let name: String
+    let window: String
+    var isMonitoring: Bool
+    var note: String?
+}
+
+struct LocationAutomation {
+    var motionCheck: Bool
+    var routeDeviation: Bool
+    var lowBatteryFailsafe: Bool
+    var checkInterval: Int
+}
+
+struct NearbyService: Identifiable {
+    let id = UUID()
+    let name: String
+    let icon: String
+    let distance: String
+    let updated: String
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+final class LocationModel: ObservableObject {
+    @Published var status: LocationStatus
+    @Published var safeZones: [SafeZone]
+    @Published var automation: LocationAutomation
+    @Published var nearbyServices: [NearbyService]
+
+    init(status: LocationStatus, safeZones: [SafeZone], automation: LocationAutomation, nearbyServices: [NearbyService]) {
+        self.status = status
+        self.safeZones = safeZones
+        self.automation = automation
+        self.nearbyServices = nearbyServices
+    }
+
+    static func sample() -> LocationModel {
+        LocationModel(
+            status: LocationStatus(
+                currentLabel: "Downtown response hub",
+                updated: "Updated 2 min ago",
+                autoExpireMinutes: 45
+            ),
+            safeZones: [
+                SafeZone(name: "Home base", window: "Arrive by 7:30 PM on weekdays", isMonitoring: true, note: "Auto-share with Taylor and Jordan."),
+                SafeZone(name: "Campus lab", window: "Check-in every 3 hours", isMonitoring: false, note: "Notify advisor if missed twice."),
+                SafeZone(name: "Gym route", window: "Alert if off-route >0.5 mi", isMonitoring: true, note: nil)
+            ],
+            automation: LocationAutomation(motionCheck: true, routeDeviation: true, lowBatteryFailsafe: true, checkInterval: 3),
+            nearbyServices: [
+                NearbyService(name: "City Medical Center ER", icon: "cross.case", distance: "1.1 mi", updated: "5 min ago"),
+                NearbyService(name: "Central Police Precinct", icon: "shield.lefthalf.fill", distance: "0.9 mi", updated: "7 min ago"),
+                NearbyService(name: "Community Shelter 12", icon: "house", distance: "2.3 mi", updated: "11 min ago")
             ]
         )
     }
 }
 
-// MARK: - Data definitions
-struct BridgeAIOverview {
-    let appName: String
-    let tagline: String
-    let mission: String
-    let introduction: String
-    let pledge: String
-}
-
-struct MissionHighlight: Identifiable {
-    let id = UUID()
-    let title: String
-    let detail: String
-    let icon: String
-    let accent: BridgeAIGradientSwatch
-}
-
-struct CapabilityGroup: Identifiable {
-    let id = UUID()
-    let title: String
-    let caption: String
-    let context: String
-    let icon: String
-    let gradient: BridgeAIGradientSwatch
-    let features: [CapabilityFeature]
-    let cta: CapabilityAction?
-}
-
-struct CapabilityFeature: Identifiable {
-    let id = UUID()
-    let title: String
-    let detail: String
-    let icon: String
-}
-
-struct CapabilityAction {
-    let label: String
-    let detail: String
-    let icon: String
+struct CourseStats {
+    let completed: Int
+    let streak: Int
 }
 
 struct CourseModule: Identifiable {
     let id = UUID()
     let title: String
-    let description: String
+    let focusArea: String
     let duration: String
+    let level: String
     let badge: String
-    let icon: String
-    let accent: BridgeAIGradientSwatch
-
-    static let samples: [CourseModule] = [
-        CourseModule(
-            title: "Hands-On CPR & AED",
-            description: "Master compressions, AED use, and choking response with animated walk-throughs and quick quizzes.",
-            duration: "12 min",
-            badge: "First Aid Essentials",
-            icon: "hands.sparkles",
-            accent: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.sunriseAccent)
-        ),
-        CourseModule(
-            title: "Storm Ready Playbook",
-            description: "Create a tornado, wildfire, and flood plan tailored to your location and household.",
-            duration: "9 min",
-            badge: "Disaster Readiness",
-            icon: "cloud.bolt.rain.fill",
-            accent: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.moss.primary)
-        ),
-        CourseModule(
-            title: "Family Digital Safety",
-            description: "Teach kids to spot misinformation, avoid scams, and activate Safe Word protocols.",
-            duration: "6 min",
-            badge: "Family Mode",
-            icon: "lock.shield",
-            accent: .init(primary: BridgeAIColors.deepSea, secondary: BridgeAIColors.lavender)
-        )
-    ]
+    var progress: Double
+    var isDownloaded: Bool
+    let description: String
 }
 
-struct SupportResource: Identifiable {
-    let id = UUID()
-    let label: String
-    let detail: String
-    let icon: String
-    let tint: BridgeAIGradientSwatch
-
-    static let samples: [SupportResource] = [
-        SupportResource(
-            label: "911 Dispatch",
-            detail: "Direct emergency services with live GPS and incident notes.",
-            icon: "phone.fill",
-            tint: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.deepSea)
-        ),
-        SupportResource(
-            label: "National Suicide & Crisis Lifeline",
-            detail: "Call or text 988 for confidential emotional support 24/7.",
-            icon: "heart.fill",
-            tint: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.sunriseAccent)
-        ),
-        SupportResource(
-            label: "FEMA Alerts",
-            detail: "Verified alerts and shelter updates matched to your safe zones.",
-            icon: "exclamationmark.triangle.fill",
-            tint: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.sunriseAccent)
-        ),
-        SupportResource(
-            label: "BridgeAI Command Center",
-            detail: "Certified operators monitor silent mode activations when you're unable to respond.",
-            icon: "dot.radiowaves.left.and.right",
-            tint: .init(primary: BridgeAIColors.midnightAccent, secondary: BridgeAIColors.deepSea)
-        )
-    ]
-}
-
-struct TrustedContact: Identifiable {
+struct CertificationPartner: Identifiable {
     let id = UUID()
     let name: String
-    let relationship: String
-    let icon: String
+    let focus: String
 }
 
-// MARK: - Capability presets
-extension CapabilityGroup {
-    static let assistiveSupport = CapabilityGroup(
-        title: "Assistive Guidance",
-        caption: "AI coaching when danger is near but time remains.",
-        context: "BridgeAI keeps you composed with calm, step-by-step plans tailored to the crisis you're facing.",
-        icon: "person.fill.questionmark",
-        gradient: .init(primary: BridgeAIColors.cerulean.primary, secondary: BridgeAIColors.sunriseAccent),
-        features: [
-            .init(
-                title: "Health & Crisis Coach",
-                detail: "Describe what you're seeing—BridgeAI responds with verified medical and safety steps in real time.",
-                icon: "stethoscope"
-            ),
-            .init(
-                title: "Disaster Playbooks",
-                detail: "Tornado, wildfire, flood, or outage? Your plan updates instantly with FEMA and NOAA feeds.",
-                icon: "wind"
-            ),
-            .init(
-                title: "Smart Supply Cart",
-                detail: "Build and track your household kits with expiration reminders and FEMA-backed recommendations.",
-                icon: "cart"
-            ),
-            .init(
-                title: "Calm Mode",
-                detail: "Switch to a soothing voice, larger text, or voice commands to keep everyone grounded.",
-                icon: "face.smiling.fill"
-            )
-        ],
-        cta: .init(
-            label: "Review preparedness checklist",
-            detail: "See what BridgeAI suggests before storm season hits.",
-            icon: "checkmark.seal.fill"
+@available(iOS 16.0, macOS 13.0, *)
+final class CourseModel: ObservableObject {
+    @Published var stats: CourseStats
+    @Published var featured: CourseModule
+    @Published var courses: [CourseModule]
+    @Published var partners: [CertificationPartner]
+
+    init(stats: CourseStats, featured: CourseModule, courses: [CourseModule], partners: [CertificationPartner]) {
+        self.stats = stats
+        self.featured = featured
+        self.courses = courses
+        self.partners = partners
+    }
+
+    static func sample() -> CourseModel {
+        let featured = CourseModule(
+            title: "Mass casualty triage drill",
+            focusArea: "Rapid patient assessment",
+            duration: "15 min",
+            level: "Intermediate",
+            badge: "Simulation",
+            progress: 0.55,
+            isDownloaded: true,
+            description: "Practice START triage with branching decisions that adapt to your choices."
         )
-    )
 
-    static let emergencyAutomation = CapabilityGroup(
-        title: "Emergency Automation",
-        caption: "Immediate action when seconds decide survival.",
-        context: "Whether you can shout for help or can’t make a sound, BridgeAI activates responders without delay.",
-        icon: "bolt.fill",
-        gradient: .init(primary: BridgeAIColors.copper.primary, secondary: BridgeAIColors.midnightAccent),
-        features: [
-            .init(
-                title: "Assertive Voice Mode",
-                detail: "Say \"Help me\" and BridgeAI dials emergency services, notifies contacts, and keeps you coached.",
-                icon: "megaphone.fill"
+        let courses = [
+            CourseModule(
+                title: "Hands-only CPR essentials",
+                focusArea: "First Aid",
+                duration: "7 min",
+                level: "Beginner",
+                badge: "Core",
+                progress: 0.8,
+                isDownloaded: true,
+                description: "Learn compression cadence, depth, and rotation strategy."
             ),
-            .init(
-                title: "Silent Background Mode",
-                detail: "Trigger with a power-button tap pattern or wearable. Location, audio, and alerts send without a sound.",
-                icon: "hand.raised.fill"
+            CourseModule(
+                title: "Stop the bleed fundamentals",
+                focusArea: "Trauma response",
+                duration: "9 min",
+                level: "Intermediate",
+                badge: "Skill",
+                progress: 0.35,
+                isDownloaded: false,
+                description: "Tourniquet placement drills with timed challenges."
             ),
-            .init(
-                title: "Evidence Capture",
-                detail: "Optional encrypted audio/video snapshots support investigations and are deleted once you’re safe.",
-                icon: "record.circle.fill"
-            ),
-            .init(
-                title: "Safe Word Control",
-                detail: "Cancel an accidental trigger or downgrade a response with a phrase only you know.",
-                icon: "mouth.fill"
+            CourseModule(
+                title: "Family wildfire plan",
+                focusArea: "Disaster readiness",
+                duration: "5 min",
+                level: "All levels",
+                badge: "Plan",
+                progress: 0.1,
+                isDownloaded: false,
+                description: "Design evacuation roles and communication routines."
             )
-        ],
-        cta: .init(
-            label: "Practice emergency triggers",
-            detail: "Run a silent drill so every family member remembers the motions.",
-            icon: "hand.tap.fill"
-        )
-    )
+        ]
 
-    static let locationIntelligence = CapabilityGroup(
-        title: "Location Intelligence",
-        caption: "Precision, privacy, and control for every incident.",
-        context: "BridgeAI respects consent while keeping your responders informed until you confirm you're safe.",
-        icon: "location.fill.viewfinder",
-        gradient: .init(primary: BridgeAIColors.moss.primary, secondary: BridgeAIColors.deepSea),
-        features: [
-            .init(
-                title: "Smart Escalation",
-                detail: "BridgeAI checks taps, voice, and motion. If you can’t respond, it escalates automatically.",
-                icon: "waveform"
-            ),
-            .init(
-                title: "Invisible Tracking",
-                detail: "Coordinates stream silently to authorities and loved ones—no on-screen clues for an aggressor.",
-                icon: "eye.slash.fill"
-            ),
-            .init(
-                title: "Safe Zone Alerts",
-                detail: "Define home, school, and work. If you miss check-ins, your circle is notified with directions.",
-                icon: "house.fill"
-            ),
-            .init(
-                title: "Nearby Help Finder",
-                detail: "See the nearest hospitals, shelters, and police stations with live hours and directions.",
-                icon: "map"
-            )
-        ],
-        cta: .init(
-            label: "Update safe zones",
-            detail: "Fine-tune radius, contacts, and auto-expire rules in under two minutes.",
-            icon: "scope"
-        )
-    )
+        let partners = [
+            CertificationPartner(name: "Red Cross Ready", focus: "Community response"),
+            CertificationPartner(name: "FEMA CERT", focus: "Incident command"),
+            CertificationPartner(name: "SafeTech Labs", focus: "Digital crisis management")
+        ]
 
-    static let courseLibrary = CapabilityGroup(
-        title: "Courses & Drills",
-        caption: "Turn bystanders into confident responders.",
-        context: "Short lessons, realistic simulations, and shareable achievements keep safety top of mind year-round.",
-        icon: "book.closed.fill",
-        gradient: .init(primary: BridgeAIColors.deepSea, secondary: BridgeAIColors.lavender),
-        features: [
-            .init(
-                title: "Micro-Lessons",
-                detail: "Complete 2–5 minute bursts that fit between meetings, practices, and homework.",
-                icon: "timer"
-            ),
-            .init(
-                title: "Interactive Scenarios",
-                detail: "Practice seizures, allergic reactions, and severe weather with branching decision paths.",
-                icon: "square.grid.3x3.fill"
-            ),
-            .init(
-                title: "Certification Track",
-                detail: "Earn digital badges, and unlock FEMA or Red Cross-aligned certificates when you’re ready.",
-                icon: "medal.fill"
-            ),
-            .init(
-                title: "Family Mode",
-                detail: "Kid-friendly stories teach 911 basics, Safe Words, and home evacuation routes.",
-                icon: "person.3.fill"
-            )
-        ],
-        cta: .init(
-            label: "Schedule a family drill",
-            detail: "Pick a weekend time and BridgeAI will deliver age-appropriate practice prompts.",
-            icon: "calendar.badge.clock"
-        )
-    )
-}
-
-// MARK: - Gradient helpers
-struct BridgeAIGradientSwatch {
-    let primary: Color
-    let secondary: Color
-
-    func gradient(inset: Bool = false) -> LinearGradient {
-        let start = inset ? primary.opacity(0.9) : primary
-        let end = inset ? secondary.opacity(0.8) : secondary
-        return LinearGradient(
-            gradient: Gradient(colors: [start, end]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+        return CourseModel(
+            stats: CourseStats(completed: 18, streak: 6),
+            featured: featured,
+            courses: courses,
+            partners: partners
         )
     }
 }
 
-// MARK: - Palette
-enum BridgeAIColors {
-    static let background = Color(red: 1.0, green: 0.996, blue: 0.918)
-    static let surfaceBackground = Color(red: 0.984, green: 0.976, blue: 0.932)
-    static let title = Color(red: 0.239, green: 0.031, blue: 0.078)
-    static let body = Color(red: 0.169, green: 0.274, blue: 0.317)
-    static let bodySecondary = Color(red: 0.352, green: 0.431, blue: 0.466)
-    static let shadow = Color(red: 0.239, green: 0.031, blue: 0.078)
+// MARK: - Theme
+enum BridgeAITheme {
+    static let primary = Color(red: 0.082, green: 0.376, blue: 0.478) // #15607A
+    static let merlot = Color(red: 0.239, green: 0.031, blue: 0.078) // #3D0814
+    static let background = Color(red: 0.992, green: 0.996, blue: 0.918) // #FFFEEA
 
-    static let sunrise = BridgeAIGradientSwatch(
-        primary: Color(red: 0.082, green: 0.376, blue: 0.478),
-        secondary: Color(red: 0.239, green: 0.031, blue: 0.078)
-    )
-    static let sunriseAccent = Color(red: 0.318, green: 0.553, blue: 0.62)
-    static let sunriseHighlight = Color(red: 0.918, green: 0.9, blue: 0.828)
+    static let accent = Color(red: 0.902, green: 0.561, blue: 0.231) // custom warm accent
+    static let textPrimary = Color(red: 0.141, green: 0.149, blue: 0.176)
+    static let textSecondary = Color(red: 0.296, green: 0.318, blue: 0.357)
+    static let textMuted = Color(red: 0.467, green: 0.47, blue: 0.472)
+    static let surface = Color.white.opacity(0.82)
 
-    static let copper = BridgeAIGradientSwatch(
-        primary: Color(red: 0.42, green: 0.11, blue: 0.18),
-        secondary: Color(red: 0.27, green: 0.05, blue: 0.11)
+    static let primaryGradient = LinearGradient(
+        colors: [primary, primary.opacity(0.75)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
-    static let moss = BridgeAIGradientSwatch(
-        primary: Color(red: 0.11, green: 0.45, blue: 0.57),
-        secondary: Color(red: 0.07, green: 0.31, blue: 0.43)
-    )
-    static let cerulean = BridgeAIGradientSwatch(
-        primary: Color(red: 0.15, green: 0.56, blue: 0.69),
-        secondary: Color(red: 0.09, green: 0.38, blue: 0.52)
-    )
-    static let deepSea = Color(red: 0.082, green: 0.376, blue: 0.478)
-    static let lavender = Color(red: 0.988, green: 0.956, blue: 0.86)
-    static let midnight = BridgeAIGradientSwatch(
-        primary: Color(red: 0.2, green: 0.07, blue: 0.12),
-        secondary: Color(red: 0.13, green: 0.03, blue: 0.08)
-    )
-    static let midnightAccent = Color(red: 0.29, green: 0.08, blue: 0.14)
 
-    static func gradient(_ swatch: BridgeAIGradientSwatch) -> LinearGradient {
-        swatch.gradient()
-    }
-}
+    static let emergencyGradient = LinearGradient(
+        colors: [merlot, Color(red: 0.545, green: 0.109, blue: 0.157)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 
-private extension BridgeAIGradientSwatch {
-    var primaryColor: Color { primary }
-}
-
-private extension Color {
-    func gradient(inset: Bool) -> LinearGradient {
-        let swatch = BridgeAIGradientSwatch(primary: self, secondary: self.opacity(0.75))
-        return swatch.gradient(inset: inset)
-    }
+    static let merlotGradient = LinearGradient(
+        colors: [merlot, Color(red: 0.39, green: 0.063, blue: 0.129)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 }
