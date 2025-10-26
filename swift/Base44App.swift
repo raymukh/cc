@@ -328,6 +328,20 @@ struct MissionHighlightsView: View {
     }
 }
 
+// MARK: - Label styles
+struct BridgeAIIconLeadingLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+extension LabelStyle where Self == BridgeAIIconLeadingLabelStyle {
+    static var iconLeading: BridgeAIIconLeadingLabelStyle { .init() }
+}
+
 @available(iOS 16.0, macOS 13.0, *)
 struct HighlightCard: View {
     let highlight: MissionHighlight
