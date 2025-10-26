@@ -284,7 +284,7 @@ struct HeroBannerView: View {
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(.white, BridgeAIColors.sunriseAccent)
                     }
-                    .labelStyle(.iconLeading)
+                    .labelStyle(BridgeAIIconLeadingLabelStyle())
 
                     Spacer()
 
@@ -336,10 +336,6 @@ struct BridgeAIIconLeadingLabelStyle: LabelStyle {
             configuration.title
         }
     }
-}
-
-extension LabelStyle where Self == BridgeAIIconLeadingLabelStyle {
-    static var iconLeading: BridgeAIIconLeadingLabelStyle { .init() }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
