@@ -232,22 +232,98 @@ struct ScenarioStepRow: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct DisasterPlanSection: View {
     let plans: [DisasterPlan]
+    @State private var currentIndex: Int = 0
 
     var body: some View {
         BridgeAISection(title: "Disaster Readiness", subtitle: "Before, during, and after playbooks with live inputs.") {
             GeometryReader { proxy in
                 let cardWidth = max(proxy.size.width, 280)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 16) {
-                        ForEach(plans) { plan in
-                            DisasterPlanCard(plan: plan)
-                                .frame(width: cardWidth)
+
+                ZStack {
+                    if let plan = currentPlan {
+                        DisasterPlanCard(plan: plan)
+                            .frame(width: cardWidth)
+                            .animation(.easeInOut(duration: 0.3), value: currentIndex)
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title2)
+                                .foregroundStyle(BridgeAITheme.primary)
+
+                            Text("No Plans Available")
+                                .font(.headline)
+                                .foregroundStyle(BridgeAITheme.textPrimary)
+
+                            Text("Add readiness guides to see them here.")
+                                .font(.subheadline)
+                                .foregroundStyle(BridgeAITheme.textSecondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(width: cardWidth)
+                        .padding(32)
+                        .background(
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(BridgeAITheme.surfacePrimary)
+                        )
+                    }
+
+                    HStack {
+                        slideshowArrow(direction: .previous) {
+                            shiftPlan(by: -1)
+                        }
+
+                        Spacer()
+
+                        slideshowArrow(direction: .next) {
+                            shiftPlan(by: 1)
                         }
                     }
-                    .padding(.horizontal, 2)
+                    .padding(.horizontal, 8)
                 }
             }
             .frame(height: 260)
+        }
+    }
+
+    private var currentPlan: DisasterPlan? {
+        guard !plans.isEmpty else { return nil }
+        let safeIndex = min(currentIndex, plans.count - 1)
+        return plans[safeIndex]
+    }
+
+    private func shiftPlan(by offset: Int) {
+        guard !plans.isEmpty else { return }
+        let nextIndex = currentIndex + offset
+        currentIndex = min(max(nextIndex, 0), plans.count - 1)
+    }
+
+    private func slideshowArrow(direction: SlideDirection, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: direction == .previous ? "chevron.left" : "chevron.right")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(BridgeAITheme.textPrimary)
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(BridgeAITheme.surfaceSecondary.opacity(0.85))
+                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(direction.accessibilityLabel)
+    }
+}
+
+private enum SlideDirection {
+    case previous
+    case next
+
+    var accessibilityLabel: String {
+        switch self {
+        case .previous:
+            return "Previous plan"
+        case .next:
+            return "Next plan"
         }
     }
 }
