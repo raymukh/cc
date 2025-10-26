@@ -301,10 +301,13 @@ struct SupplyCartSection: View {
         BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
             VStack(spacing: 16) {
                 VStack(spacing: 12) {
-                    ForEach($items) { $item in
+                    ForEach(Array(items.indices), id: \.self) { index in
+                        let itemBinding = $items[index]
+                        let item = itemBinding.wrappedValue
+
                         HStack(spacing: 14) {
                             Button {
-                                item.isOwned.toggle()
+                                itemBinding.wrappedValue.isOwned.toggle()
                             } label: {
                                 Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
                                     .font(.title3)
@@ -323,13 +326,30 @@ struct SupplyCartSection: View {
                                 }
                             }
 
-                            Spacer()
+                            Spacer(minLength: 12)
 
                             if let reminder = item.reminderDate {
                                 Text(reminder)
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(BridgeAITheme.accent)
                             }
+
+                            Button {
+                                withAnimation(.easeInOut) {
+                                    items.remove(at: index)
+                                }
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.callout.weight(.semibold))
+                                    .foregroundStyle(BridgeAITheme.merlot)
+                                    .padding(8)
+                                    .background(
+                                        Circle()
+                                            .fill(BridgeAITheme.surfaceSecondary.opacity(0.7))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(item.name)")
                         }
                         .padding(16)
                         .background(
