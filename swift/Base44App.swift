@@ -199,28 +199,28 @@ private struct ReadinessStatusCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Readiness")
-                        .font(.caption.bold())
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.white.opacity(0.9))
 
                     Text(readiness.statusLabel)
-                        .font(.footnote.weight(.semibold))
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(
                             Capsule(style: .continuous)
                                 .fill(Color.white.opacity(0.2))
                         )
                 }
 
-                Spacer()
+                Spacer(minLength: 20)
 
                 Text(readiness.formattedPercentage)
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
 
@@ -231,14 +231,14 @@ private struct ReadinessStatusCard: View {
             HStack(alignment: .center, spacing: 16) {
                 ReadinessProgressCircle(progress: readiness.clampedProgress)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Readiness snapshot")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
 
                     Text(readiness.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.9))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
