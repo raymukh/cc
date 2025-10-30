@@ -93,16 +93,7 @@ struct AssistiveHeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .center, spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.white.opacity(0.18))
-                        .frame(width: 48, height: 48)
-
-                    BridgeSymbol()
-                        .frame(width: 28, height: 28)
-                }
-
+            HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(overview.title)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
@@ -115,20 +106,27 @@ struct AssistiveHeroCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text(readiness.formattedPercentage)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-
-                    Text(readiness.statusLabel)
+                VStack(alignment: .trailing, spacing: 10) {
+                    Text("Readiness")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.merlot)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.white.opacity(0.9))
-                        )
+                        .textCase(.uppercase)
+                        .foregroundStyle(.white.opacity(0.7))
+
+                    HStack(spacing: 10) {
+                        Text(readiness.formattedPercentage)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text(readiness.statusLabel)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(BridgeAITheme.merlot)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(.white.opacity(0.9))
+                            )
+                    }
                 }
             }
 
