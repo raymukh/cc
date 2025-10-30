@@ -92,30 +92,30 @@ struct AssistiveHeroCard: View {
     let readiness: EmergencyReadiness
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .top, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(overview.title)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(overview.title)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
 
-                    Text(overview.summary)
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(overview.summary)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .trailing, spacing: 14) {
-                    Text("Readiness")
-                        .font(.footnote.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.7))
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Readiness")
+                            .font(.footnote.weight(.semibold))
+                            .textCase(.uppercase)
+                            .foregroundStyle(.white.opacity(0.7))
 
-                    Text(readiness.formattedPercentage)
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        Spacer()
+
+                        Text(readiness.formattedPercentage)
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
 
                     Text(readiness.statusLabel)
                         .font(.footnote.weight(.semibold))
@@ -126,7 +126,7 @@ struct AssistiveHeroCard: View {
                             Capsule(style: .continuous)
                                 .fill(.white.opacity(0.9))
                         )
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(alignment: .center, spacing: 16) {
                         ReadinessRing(progress: readiness.clampedProgress)
@@ -142,7 +142,6 @@ struct AssistiveHeroCard: View {
                                 .foregroundStyle(.white.opacity(0.85))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.vertical, 14)
                     .padding(.horizontal, 16)
@@ -150,9 +149,12 @@ struct AssistiveHeroCard: View {
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(.white.opacity(0.12))
                     )
-                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .frame(maxWidth: 240)
+                .padding(18)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(.white.opacity(0.08))
+                )
             }
 
             Divider()
