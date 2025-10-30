@@ -1403,7 +1403,7 @@ private struct EmergencyVoiceOverlay: View {
                 .accessibilityLabel("Stop AI response listening")
             }
 
-            RecordingMicrophoneView()
+            RecordingMicrophoneView(isRecording: true)
 
             Text("We’ll relay instructions to responders the moment you select a scenario.")
                 .font(.footnote)
