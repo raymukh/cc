@@ -192,16 +192,12 @@ private struct ReadinessStatusCard: View {
                 .padding(16)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.15))
+                        .fill(BridgeAITheme.surface.opacity(0.35))
                 )
             }
             .padding(20)
             .background(
-                LinearGradient(
-                    colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.6)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                BridgeAITheme.readinessGradient
             )
             .cornerRadius(20)
         }
@@ -218,13 +214,13 @@ private struct ReadinessProgressCircle: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.25), lineWidth: 8)
+                .stroke(BridgeAITheme.primary.opacity(0.25), lineWidth: 8)
 
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [Color.blue.opacity(0.9), Color.blue.opacity(0.6)]),
+                        gradient: Gradient(colors: [BridgeAITheme.primary, BridgeAITheme.primary.opacity(0.65)]),
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: 8, lineCap: .round)
@@ -232,7 +228,7 @@ private struct ReadinessProgressCircle: View {
                 .rotationEffect(.degrees(-90))
 
             Circle()
-                .fill(Color.white.opacity(0.15))
+                .fill(BridgeAITheme.primary.opacity(0.2))
                 .frame(width: 18, height: 18)
                 .offset(y: -28)
                 .rotationEffect(.degrees(progress * 360))
@@ -2277,8 +2273,8 @@ enum BridgeAITheme {
 
     static let readinessGradient = LinearGradient(
         colors: [
-            Color(red: 0.086, green: 0.392, blue: 0.765),
-            Color(red: 0.133, green: 0.59, blue: 0.847)
+            primary.opacity(0.9),
+            Color(red: 0.741, green: 0.859, blue: 0.91)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
