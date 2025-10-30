@@ -106,18 +106,36 @@ struct AssistiveHeroCard: View {
             Divider()
                 .overlay(.white.opacity(0.18))
 
-            HStack(spacing: 18) {
-                MetricBadge(
+            VStack(spacing: 16) {
+                HeroInteractionTile(
                     icon: "magnifyingglass",
                     title: "AI Search",
-                    detail: "Quickly pull any safety checklist you need."
+                    detail: "Quickly pull any safety checklist you need.",
+                    isActive: isSearchActive,
+                    action: toggleSearch
                 )
 
-                MetricBadge(
+                if isSearchActive {
+                    AssistiveSearchPanel(
+                        query: $searchQuery,
+                        onSubmit: handleSearchSubmit,
+                        onDismiss: { toggleSearch(forceClose: true) }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                HeroInteractionTile(
                     icon: "waveform",
                     title: "Voice Assist",
-                    detail: "Ask for next steps or confirm actions hands-free."
+                    detail: "Ask for next steps or confirm actions hands-free.",
+                    isActive: isVoiceActive,
+                    action: toggleVoice
                 )
+
+                if isVoiceActive {
+                    AssistiveVoicePanel(onDismiss: { toggleVoice(forceClose: true) })
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
 
         }
@@ -133,6 +151,46 @@ struct AssistiveHeroCard: View {
                 .strokeBorder(.white.opacity(0.08))
         )
     }
+
+    @State private var isSearchActive = false
+    @State private var searchQuery: String = ""
+    @State private var isVoiceActive = false
+
+    private func toggleSearch(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isSearchActive = false
+            } else {
+                isSearchActive.toggle()
+            }
+            if isSearchActive {
+                isVoiceActive = false
+            }
+        }
+        if !isSearchActive {
+            searchQuery = ""
+        }
+    }
+
+    private func toggleVoice(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isVoiceActive = false
+            } else {
+                isVoiceActive.toggle()
+            }
+            if isVoiceActive {
+                isSearchActive = false
+            }
+        }
+    }
+
+    private func handleSearchSubmit() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            searchQuery = ""
+            isSearchActive = false
+        }
+    }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
@@ -143,7 +201,7 @@ private struct ReadinessStatusCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Automation status")
+                    Text("Readiness")
                         .font(.caption.bold())
                         .textCase(.uppercase)
                         .foregroundStyle(.white.opacity(0.85))
@@ -186,20 +244,234 @@ private struct ReadinessStatusCard: View {
             }
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BridgeAITheme.surface.opacity(0.4))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(BridgeAITheme.surface.opacity(0.42))
             )
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(BridgeAITheme.readinessGradient)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.12))
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct HeroInteractionTile: View {
+    let icon: String
+    let title: String
+    let detail: String
+    var isActive: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(
+                        Circle()
+                            .fill(.white.opacity(0.12))
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 12)
+
+                Image(systemName: isActive ? "chevron.down" : "chevron.right")
+                    .font(.headline)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.white.opacity(isActive ? 0.18 : 0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(.white.opacity(isActive ? 0.22 : 0.12))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityHint("Opens \(title) controls")
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct AssistiveSearchPanel: View {
+    @Binding var query: String
+    var onSubmit: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("AI Search")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button(action: onDismiss) {
+                    Label("Close", systemImage: "xmark")
+                        .labelStyle(.iconOnly)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.12))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss AI Search")
+            }
+
+            Text("Type what you need and we’ll prep the right checklist.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.85))
+
+            VStack(spacing: 10) {
+                TextField("e.g. Allergic reaction protocol", text: $query)
+                    .textInputAutocapitalization(.sentences)
+                    .disableAutocorrection(false)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.white.opacity(0.14))
+                    )
+                    .foregroundStyle(.white)
+
+                HStack(spacing: 12) {
+                    Button("Cancel", action: onDismiss)
+                        .buttonStyle(BridgeAITertiaryButtonStyle())
+
+                    Spacer()
+
+                    Button("Submit") {
+                        onSubmit()
+                    }
+                    .buttonStyle(BridgeAIActionButtonStyle())
+                    .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.7 : 1)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.white.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.16))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct AssistiveVoicePanel: View {
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Voice Assist Active")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("We’re capturing your request in real-time.")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+
+                Spacer()
+
+                Button(action: onDismiss) {
+                    Label("Stop listening", systemImage: "xmark")
+                        .labelStyle(.iconOnly)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.12))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close voice assist")
+            }
+
+            RecordingMicrophoneView()
+
+            Text("Listening… describe what’s happening or stay quiet and we’ll keep monitoring.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+
+            Button("End session") {
+                onDismiss()
+            }
+            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.white.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(.white.opacity(0.16))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct RecordingMicrophoneView: View {
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(BridgeAITheme.primary.opacity(0.35), lineWidth: 3)
+                .frame(width: 96, height: 96)
+                .scaleEffect(animate ? 1.1 : 0.85)
+                .opacity(animate ? 0.5 : 0.25)
+
+            Circle()
+                .fill(BridgeAITheme.primary.opacity(0.25))
+                .frame(width: 76, height: 76)
+
+            Image(systemName: "mic.fill")
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(height: 96)
+        .onAppear {
+            animate = true
+        }
+        .onDisappear {
+            animate = false
+        }
+        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: animate)
     }
 }
 
@@ -2271,8 +2543,8 @@ enum BridgeAITheme {
 
     static let readinessGradient = LinearGradient(
         colors: [
-            primary.opacity(0.9),
-            Color(red: 0.741, green: 0.859, blue: 0.91)
+            Color(red: 0.051, green: 0.239, blue: 0.314),
+            Color(red: 0.118, green: 0.463, blue: 0.561)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
