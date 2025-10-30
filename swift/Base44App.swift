@@ -2617,10 +2617,17 @@ struct CourseResourceRow: View {
 
             Spacer()
 
-            Button(resource.isSaved ? "Saved" : "Save") {
-                onToggle()
+            if resource.isSaved {
+                Button("Saved") {
+                    onToggle()
+                }
+                .buttonStyle(BridgeAITertiaryButtonStyle())
+            } else {
+                Button("Save") {
+                    onToggle()
+                }
+                .buttonStyle(BridgeAIActionButtonStyle())
             }
-            .buttonStyle(resource.isSaved ? BridgeAITertiaryButtonStyle() : BridgeAIActionButtonStyle())
         }
         .padding(16)
         .background(
