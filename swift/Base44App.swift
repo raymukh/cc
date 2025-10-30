@@ -65,11 +65,12 @@ struct AssistiveSupportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
-                    AssistiveHeroCard(overview: model.overview)
+                    AssistiveHeroCard(
+                        overview: model.overview,
+                        readiness: model.readiness
+                    )
 
                     CalmModeSection(settings: $model.calmSettings)
-
-                    EmergencyReadinessCard(readiness: model.readiness)
 
                     AssistiveScenarioSection(scenarios: $model.scenarios)
 
@@ -88,40 +89,87 @@ struct AssistiveSupportView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct AssistiveHeroCard: View {
     let overview: AssistiveOverview
+    let readiness: EmergencyReadiness
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .center, spacing: 18) {
+            HStack(alignment: .center, spacing: 16) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(.white.opacity(0.18))
-                        .frame(width: 56, height: 56)
+                        .frame(width: 48, height: 48)
 
                     BridgeSymbol()
-                        .frame(width: 32, height: 32)
+                        .frame(width: 28, height: 28)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(overview.title)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
                     Text(overview.summary)
                         .font(.callout.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(.white.opacity(0.92))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(readiness.formattedPercentage)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text(readiness.statusLabel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.merlot)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.white.opacity(0.9))
+                        )
+                }
             }
 
             Divider()
                 .overlay(.white.opacity(0.18))
 
             HStack(spacing: 16) {
-                MetricBadge(icon: "magnifyingglass", title: "AI Search", detail: "Quickly pull up any safety checklist you need.")
+                MetricBadge(
+                    icon: "magnifyingglass",
+                    title: "AI Search",
+                    detail: "Quickly pull any safety checklist you need."
+                )
 
-                MetricBadge(icon: "waveform", title: "Voice Assist", detail: "Ask for next steps or confirm actions hands-free.")
+                MetricBadge(
+                    icon: "waveform",
+                    title: "Voice Assist",
+                    detail: "Ask for next steps or confirm actions hands-free."
+                )
             }
+
+            HStack(alignment: .center, spacing: 18) {
+                ReadinessRing(progress: readiness.clampedProgress)
+                    .frame(width: 86, height: 86)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Readiness snapshot")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text(readiness.detail)
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.white.opacity(0.12))
+            )
         }
         .padding(.vertical, 28)
         .padding(.horizontal, 26)
@@ -134,6 +182,33 @@ struct AssistiveHeroCard: View {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(.white.opacity(0.08))
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct ReadinessRing: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(.white.opacity(0.25), lineWidth: 10)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    BridgeAITheme.readinessGradient,
+                    style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            Circle()
+                .fill(.white.opacity(0.18))
+                .frame(width: 16, height: 16)
+                .offset(y: -38)
+                .rotationEffect(.degrees(progress * 360))
+                .opacity(progress > 0 ? 1 : 0)
+        }
     }
 }
 
@@ -167,88 +242,6 @@ struct MetricBadge: View {
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.white.opacity(0.06))
-        )
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct EmergencyReadinessCard: View {
-    let readiness: EmergencyReadiness
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 24) {
-            VStack(alignment: .leading, spacing: 16) {
-                Label {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Emergency Readiness")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.white)
-
-                        Text(readiness.detail)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.9))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                } icon: {
-                    Image(systemName: "shield.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white.opacity(0.95))
-                        .font(.system(size: 26, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.white.opacity(0.18))
-                        )
-                }
-                .labelStyle(BridgeAIIconLeadingLabelStyle())
-
-                HStack(spacing: 12) {
-                    Text(readiness.formattedPercentage)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-
-                    Text(readiness.statusLabel)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.merlot)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.white.opacity(0.92))
-                        )
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            ZStack {
-                Circle()
-                    .strokeBorder(.white.opacity(0.2), lineWidth: 12)
-
-                Circle()
-                    .trim(from: 0, to: readiness.clampedProgress)
-                    .stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round, lineJoin: .round))
-                    .foregroundStyle(.white)
-                    .rotationEffect(.degrees(-90))
-
-                Circle()
-                    .fill(.white.opacity(0.16))
-                    .frame(width: 18, height: 18)
-                    .offset(y: -70)
-                    .rotationEffect(.degrees(readiness.clampedProgress * 360))
-                    .opacity(readiness.clampedProgress > 0 ? 1 : 0)
-            }
-            .frame(width: 140, height: 140)
-        }
-        .padding(.vertical, 28)
-        .padding(.horizontal, 26)
-        .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.readinessGradient)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .strokeBorder(.white.opacity(0.08))
         )
     }
 }
@@ -1727,9 +1720,9 @@ final class AssistiveModel: ObservableObject {
                 summary: "Review these disaster plans to know exactly what to do when emergencies happen. Each plan includes before, during, and after guidance tailored to your safety."
             ),
             readiness: EmergencyReadiness(
-                percentage: 0,
-                statusLabel: "Needs Work",
-                detail: "Your current preparedness level based on contacts, supplies, and training."
+                percentage: 62,
+                statusLabel: "On Track",
+                detail: "Contacts, supplies, and training check-ins are nearly complete."
             ),
             scenarios: [
                 CrisisScenario(
@@ -2236,15 +2229,15 @@ final class CourseModel: ObservableObject {
 enum BridgeAITheme {
     static let primary = Color(red: 0.082, green: 0.376, blue: 0.478) // #15607A
     static let merlot = Color(red: 0.239, green: 0.031, blue: 0.078) // #3D0814
-    static let background = Color(red: 0.992, green: 0.996, blue: 0.918) // #FFFEEA
+    static let background = Color(red: 0.953, green: 0.965, blue: 0.984) // #F3F6FB
 
     static let accent = Color(red: 0.902, green: 0.561, blue: 0.231) // custom warm accent
     static let textPrimary = Color(red: 0.141, green: 0.149, blue: 0.176)
     static let textSecondary = Color(red: 0.296, green: 0.318, blue: 0.357)
     static let textMuted = Color(red: 0.467, green: 0.47, blue: 0.472)
     static let surface = Color.white.opacity(0.82)
-    static let surfacePrimary = Color(red: 1.0, green: 0.991, blue: 0.94)
-    static let surfaceSecondary = Color(red: 0.953, green: 0.964, blue: 0.968)
+    static let surfacePrimary = Color(red: 0.977, green: 0.982, blue: 0.992)
+    static let surfaceSecondary = Color(red: 0.94, green: 0.949, blue: 0.964)
 
     static let primaryGradient = LinearGradient(
         colors: [primary, primary.opacity(0.75)],
