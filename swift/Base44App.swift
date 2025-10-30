@@ -427,10 +427,29 @@ private struct AssistiveVoicePanel: View {
             .buttonStyle(.plain)
             .accessibilityLabel(isRecording ? "Pause microphone" : "Start microphone")
 
-            Text(isRecording ? "Listening… describe what’s happening or stay quiet and we’ll keep monitoring." : "Microphone paused. Tap the mic to start a hands-free request.")
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
-                .multilineTextAlignment(.center)
+            if isResponding {
+                AssistiveVoiceResponseView(
+                    isProcessing: isProcessingResponse,
+                    message: responseMessage,
+                    details: responseDetails
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+
+                if !isProcessingResponse {
+                    Button("Ask something else") {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            resetInteraction()
+                        }
+                    }
+                    .buttonStyle(BridgeAITertiaryButtonStyle())
+                    .frame(maxWidth: .infinity)
+                }
+            } else {
+                Text(isRecording ? "Listening… describe what’s happening or stay quiet and we’ll keep monitoring." : "Microphone paused. Tap the mic to start a hands-free request.")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+            }
 
             Button("End session") {
                 handleDismiss()
@@ -447,19 +466,132 @@ private struct AssistiveVoicePanel: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(.white.opacity(0.16))
         )
-    }
-
-    @State private var isRecording = false
-
-    private func toggleRecording() {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
-            isRecording.toggle()
+        .onDisappear {
+            resetInteraction()
+            isRecording = false
         }
     }
 
+    @State private var isRecording = false
+    @State private var isResponding = false
+    @State private var isProcessingResponse = false
+    @State private var responseMessage: String = ""
+    @State private var responseDetails: [String] = []
+    @State private var responseWorkItem: DispatchWorkItem?
+
+    private func toggleRecording() {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+            if isRecording {
+                isRecording = false
+                beginResponseSequence()
+            } else {
+                resetInteraction()
+                isRecording = true
+            }
+        }
+    }
+
+    private func beginResponseSequence() {
+        resetPendingWork()
+        isResponding = true
+        isProcessingResponse = true
+        responseMessage = "Analyzing your last request…"
+        responseDetails = []
+
+        let workItem = DispatchWorkItem {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isProcessingResponse = false
+                responseMessage = "Here’s what to do next while we alert responders."
+                responseDetails = [
+                    "Move everyone to the safest nearby shelter space.",
+                    "Secure doors and communicate status updates when you can.",
+                    "Keep your device accessible—BridgeAI is tracking location for responders."
+                ]
+            }
+        }
+
+        responseWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: workItem)
+    }
+
+    private func resetInteraction() {
+        resetPendingWork()
+        isResponding = false
+        isProcessingResponse = false
+        responseMessage = ""
+        responseDetails = []
+    }
+
+    private func resetPendingWork() {
+        responseWorkItem?.cancel()
+        responseWorkItem = nil
+    }
+
     private func handleDismiss() {
+        resetInteraction()
         isRecording = false
         onDismiss()
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct AssistiveVoiceResponseView: View {
+    let isProcessing: Bool
+    let message: String
+    let details: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Text("BridgeAI is responding")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+
+            if isProcessing {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.white)
+
+                    Text("Reviewing your request…")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(message)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    ForEach(details, id: \.self) { detail in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.white.opacity(0.85))
+                                .font(.system(size: 14, weight: .semibold))
+
+                            Text(detail)
+                                .font(.footnote)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.white.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.14))
+        )
     }
 }
 
@@ -952,7 +1084,7 @@ struct EmergencyAutomationView: View {
                 VStack(spacing: 28) {
                     EmergencyStatusCard(model: model)
 
-                    EmergencyContactsSection(contacts: model.contacts)
+                    EmergencyContactsSection(contacts: $model.contacts)
 
                     EmergencyTriggerPanel(
                         mode: .voice,
@@ -1102,7 +1234,8 @@ struct EmergencyStatusCard: View {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct EmergencyContactsSection: View {
-    let contacts: [EmergencyContact]
+    @Binding var contacts: [EmergencyContact]
+    @State private var isPresentingManager = false
 
     var body: some View {
         BridgeAISection(
@@ -1110,14 +1243,31 @@ struct EmergencyContactsSection: View {
             subtitle: "Everyone who receives instant notifications when help is needed."
         ) {
             VStack(spacing: 14) {
-                ForEach(contacts) { contact in
-                    EmergencyContactRow(contact: contact)
+                if contacts.isEmpty {
+                    Text("Add family, friends, or teammates so alerts reach the right people instantly.")
+                        .font(.footnote)
+                        .foregroundStyle(BridgeAITheme.textMuted)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(BridgeAITheme.surface)
+                        )
+                } else {
+                    ForEach(contacts) { contact in
+                        EmergencyContactRow(contact: contact)
+                    }
                 }
 
-                Button("Manage contacts") {}
-                    .buttonStyle(BridgeAITertiaryButtonStyle())
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Manage contacts") {
+                    isPresentingManager = true
+                }
+                .buttonStyle(BridgeAITertiaryButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+        .sheet(isPresented: $isPresentingManager) {
+            EmergencyContactsEditor(contacts: $contacts)
         }
     }
 }
@@ -1163,6 +1313,188 @@ struct EmergencyContactRow: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(BridgeAITheme.surface)
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyContactsEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var contacts: [EmergencyContact]
+    @State private var selectedPrimaryID: EmergencyContact.ID?
+    @State private var isPresentingAddSheet = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Contacts") {
+                    if contacts.isEmpty {
+                        Text("Tap add to create your first emergency contact.")
+                            .font(.subheadline)
+                            .foregroundStyle(BridgeAITheme.textMuted)
+                            .padding(.vertical, 8)
+                    }
+
+                    ForEach($contacts) { $contact in
+                        VStack(alignment: .leading, spacing: 12) {
+                            TextField("Full name", text: $contact.name)
+                                .textContentType(.name)
+
+                            TextField("Relationship", text: $contact.relationship)
+
+                            TextField("Phone number", text: $contact.phone)
+                                .keyboardType(.phonePad)
+                                .textContentType(.telephoneNumber)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    .onDelete(perform: removeContacts)
+                }
+
+                if !contacts.isEmpty {
+                    Section("Primary contact") {
+                        Picker("Primary contact", selection: primarySelectionBinding) {
+                            ForEach(contacts) { contact in
+                                Text(contact.name.isEmpty ? "Unnamed contact" : contact.name)
+                                    .tag(Optional(contact.id))
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Manage contacts")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", action: dismissEditor)
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isPresentingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add contact")
+                }
+            }
+            .onAppear(perform: configureInitialSelection)
+            .sheet(isPresented: $isPresentingAddSheet) {
+                EmergencyContactForm { newContact in
+                    contacts.append(newContact)
+                    if newContact.isPrimary {
+                        selectedPrimaryID = newContact.id
+                    } else if selectedPrimaryID == nil {
+                        selectedPrimaryID = newContact.id
+                    }
+                    if let id = selectedPrimaryID {
+                        updatePrimarySelection(id)
+                    }
+                }
+            }
+        }
+    }
+
+    private var primarySelectionBinding: Binding<EmergencyContact.ID?> {
+        Binding {
+            selectedPrimaryID
+        } set: { newValue in
+            guard let id = newValue ?? contacts.first?.id else { return }
+            selectedPrimaryID = id
+            updatePrimarySelection(id)
+        }
+    }
+
+    private func configureInitialSelection() {
+        if let current = contacts.first(where: { $0.isPrimary }) {
+            selectedPrimaryID = current.id
+        } else {
+            selectedPrimaryID = contacts.first?.id
+            if let id = selectedPrimaryID {
+                updatePrimarySelection(id)
+            }
+        }
+    }
+
+    private func removeContacts(at offsets: IndexSet) {
+        contacts.remove(atOffsets: offsets)
+        configureInitialSelection()
+    }
+
+    private func updatePrimarySelection(_ id: EmergencyContact.ID) {
+        contacts = contacts.map { contact in
+            var updated = contact
+            updated.isPrimary = contact.id == id
+            return updated
+        }
+    }
+
+    private func dismissEditor() {
+        if let id = selectedPrimaryID {
+            updatePrimarySelection(id)
+        }
+        dismiss()
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyContactForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String = ""
+    @State private var relationship: String = ""
+    @State private var phone: String = ""
+    @State private var makePrimary: Bool = false
+
+    var onSave: (EmergencyContact) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Details") {
+                    TextField("Full name", text: $name)
+                        .textContentType(.name)
+
+                    TextField("Relationship", text: $relationship)
+
+                    TextField("Phone number", text: $phone)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
+                }
+
+                Section {
+                    Toggle("Set as primary contact", isOn: $makePrimary)
+                }
+            }
+            .navigationTitle("New contact")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedRelationship = relationship.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedPhone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                        guard !trimmedName.isEmpty, !trimmedPhone.isEmpty else { return }
+
+                        onSave(
+                            EmergencyContact(
+                                name: trimmedName,
+                                relationship: trimmedRelationship.isEmpty ? "Contact" : trimmedRelationship,
+                                phone: trimmedPhone,
+                                isPrimary: makePrimary
+                            )
+                        )
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
 
@@ -3000,12 +3332,57 @@ final class SupplyItemStore {
     }
 }
 
-struct EmergencyContact: Identifiable {
-    let id = UUID()
+final class EmergencyContactStore {
+    private enum Constants {
+        static let storageKey = "bridgeai.emergencyContacts"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load(defaultContacts: [EmergencyContact]) -> [EmergencyContact] {
+        guard let data = defaults.data(forKey: Constants.storageKey) else {
+            save(defaultContacts)
+            return defaultContacts
+        }
+
+        do {
+            return try JSONDecoder().decode([EmergencyContact].self, from: data)
+        } catch {
+            save(defaultContacts)
+            return defaultContacts
+        }
+    }
+
+    func save(_ contacts: [EmergencyContact]) {
+        do {
+            let data = try JSONEncoder().encode(contacts)
+            defaults.set(data, forKey: Constants.storageKey)
+        } catch {
+#if DEBUG
+            print("Failed to persist emergency contacts: \(error)")
+#endif
+        }
+    }
+}
+
+struct EmergencyContact: Identifiable, Codable {
+    let id: UUID
     var name: String
     var relationship: String
     var phone: String
     var isPrimary: Bool
+
+    init(id: UUID = UUID(), name: String, relationship: String, phone: String, isPrimary: Bool) {
+        self.id = id
+        self.name = name
+        self.relationship = relationship
+        self.phone = phone
+        self.isPrimary = isPrimary
+    }
 }
 
 enum EmergencyMode: String {
@@ -3096,9 +3473,15 @@ struct EvidenceSettings {
 @available(iOS 16.0, macOS 13.0, *)
 @MainActor
 final class EmergencyModel: ObservableObject {
+    private let contactStore: EmergencyContactStore
+
     @Published var triggerPhrase: String
     @Published var primaryChannel: String
-    @Published var contacts: [EmergencyContact]
+    @Published var contacts: [EmergencyContact] {
+        didSet {
+            contactStore.save(contacts)
+        }
+    }
     @Published var actions: [EmergencyAction]
     @Published var pathways: [EscalationPathway]
     @Published var evidenceSettings: EvidenceSettings
@@ -3114,16 +3497,26 @@ final class EmergencyModel: ObservableObject {
         pathways: [EscalationPathway],
         evidenceSettings: EvidenceSettings,
         categories: [EmergencyCategory],
-        activeEmergency: ActiveEmergencyState? = nil
+        activeEmergency: ActiveEmergencyState? = nil,
+        contactStore: EmergencyContactStore = EmergencyContactStore()
     ) {
+        self.contactStore = contactStore
         self.triggerPhrase = triggerPhrase
         self.primaryChannel = primaryChannel
-        self.contacts = contacts
         self.actions = actions
         self.pathways = pathways
         self.evidenceSettings = evidenceSettings
         self.categories = categories
         self.activeEmergency = activeEmergency
+
+        var persistedContacts = contactStore.load(defaultContacts: contacts)
+        if let firstIndex = persistedContacts.indices.first,
+           !persistedContacts.contains(where: { $0.isPrimary }) {
+            persistedContacts[firstIndex].isPrimary = true
+            contactStore.save(persistedContacts)
+        }
+
+        self._contacts = Published(initialValue: persistedContacts)
     }
 
     func scheduleDrill() {
