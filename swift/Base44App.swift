@@ -65,8 +65,6 @@ struct AssistiveSupportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
-                    ReadinessStatusCard(readiness: model.readiness)
-
                     AssistiveHeroCard(
                         overview: model.overview
                     )
@@ -76,6 +74,8 @@ struct AssistiveSupportView: View {
                     AssistiveScenarioSection(scenarios: $model.scenarios)
 
                     SupplyCartSection(items: $model.supplyItems)
+
+                    ReadinessStatusCard(readiness: model.readiness)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
@@ -1084,6 +1084,8 @@ struct EmergencyTriggerPanel: View {
     let categories: [EmergencyCategory]
 
     @State private var contextNote: String = ""
+    @State private var isVoiceOverlayActive = false
+    @State private var isMultiSensoryOverlayActive = false
 
     private var columns: [GridItem] {
         [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -1091,7 +1093,39 @@ struct EmergencyTriggerPanel: View {
 
     var body: some View {
         BridgeAISection(title: mode.displayTitle, subtitle: mode.subtitle) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
+                if mode == .voice {
+                    EmergencyModeActivationButton(
+                        icon: "waveform.circle.fill",
+                        title: "AI Response",
+                        detail: isVoiceOverlayActive ? "Listening for your command…" : "Launch voice-activated emergency help.",
+                        isActive: isVoiceOverlayActive,
+                        action: { toggleVoiceOverlay() }
+                    )
+
+                    if isVoiceOverlayActive {
+                        EmergencyVoiceOverlay {
+                            toggleVoiceOverlay(forceClose: true)
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                } else {
+                    EmergencyModeActivationButton(
+                        icon: "ear.and.waveform",
+                        title: "Multi-Sensory",
+                        detail: isMultiSensoryOverlayActive ? "Ambient audio cues armed." : "Let BridgeAI listen for distress signals.",
+                        isActive: isMultiSensoryOverlayActive,
+                        action: { toggleMultiSensoryOverlay() }
+                    )
+
+                    if isMultiSensoryOverlayActive {
+                        EmergencyMultiSensoryOverlay {
+                            toggleMultiSensoryOverlay(forceClose: true)
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(mode.prompt)
                         .font(.footnote)
@@ -1124,6 +1158,32 @@ struct EmergencyTriggerPanel: View {
                 Text("Selecting an option immediately alerts your contacts and begins location tracking.")
                     .font(.caption)
                     .foregroundStyle(BridgeAITheme.textMuted)
+            }
+        }
+    }
+
+    private func toggleVoiceOverlay(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isVoiceOverlayActive = false
+            } else {
+                isVoiceOverlayActive.toggle()
+            }
+            if isVoiceOverlayActive {
+                isMultiSensoryOverlayActive = false
+            }
+        }
+    }
+
+    private func toggleMultiSensoryOverlay(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isMultiSensoryOverlayActive = false
+            } else {
+                isMultiSensoryOverlayActive.toggle()
+            }
+            if isMultiSensoryOverlayActive {
+                isVoiceOverlayActive = false
             }
         }
     }
@@ -1167,6 +1227,196 @@ struct EmergencyCategoryButton: View {
                     lineWidth: 1
                 )
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyModeActivationButton: View {
+    let icon: String
+    let title: String
+    let detail: String
+    var isActive: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(isActive ? .white : BridgeAITheme.primary)
+                    .frame(width: 52, height: 52)
+                    .background(
+                        Circle()
+                            .fill(isActive ? BridgeAITheme.primary.opacity(0.4) : BridgeAITheme.primary.opacity(0.12))
+                    )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(isActive ? .white : BridgeAITheme.textPrimary)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(isActive ? .white.opacity(0.85) : BridgeAITheme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                Image(systemName: isActive ? "xmark.circle.fill" : "play.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(isActive ? .white : BridgeAITheme.primary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(isActive ? BridgeAITheme.primary.opacity(0.25) : BridgeAITheme.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(
+                        isActive ? BridgeAITheme.primary.opacity(0.45) : BridgeAITheme.surfaceSecondary.opacity(0.6)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyVoiceOverlay: View {
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AI response listening")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("Hold steady while we capture your request.")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+
+                Spacer()
+
+                Button(action: onDismiss) {
+                    Label("Stop", systemImage: "xmark")
+                        .labelStyle(.iconOnly)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(8)
+                        .background(
+                            Circle().fill(.white.opacity(0.15))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Stop AI response listening")
+            }
+
+            RecordingMicrophoneView()
+
+            Text("We’ll relay instructions to responders the moment you select a scenario.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.white.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(.white.opacity(0.16))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyMultiSensoryOverlay: View {
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Ambient listening armed")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("BridgeAI is monitoring nearby audio cues for distress.")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+
+                Spacer()
+
+                Button(action: onDismiss) {
+                    Label("Stop", systemImage: "xmark")
+                        .labelStyle(.iconOnly)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(8)
+                        .background(
+                            Circle().fill(.white.opacity(0.15))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Stop ambient listening")
+            }
+
+            AudioCueListeningView()
+
+            Text("If we detect alarming spikes, we’ll escalate and notify your contacts instantly.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+
+            Button("Exit monitoring") {
+                onDismiss()
+            }
+            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.white.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(.white.opacity(0.16))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct AudioCueListeningView: View {
+    @State private var animate = false
+
+    private let highHeights: [CGFloat] = [52, 36, 48, 40, 54, 34]
+    private let lowHeights: [CGFloat] = [18, 12, 20, 16, 22, 14]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(highHeights.indices, id: \.self) { index in
+                Capsule(style: .continuous)
+                    .fill(BridgeAITheme.primary.opacity(0.8))
+                    .frame(width: 10, height: animate ? highHeights[index] : lowHeights[index])
+                    .animation(
+                        .easeInOut(duration: 0.7)
+                            .repeatForever()
+                            .delay(Double(index) * 0.08),
+                        value: animate
+                    )
+            }
+        }
+        .frame(height: 60)
+        .padding(.vertical, 4)
+        .onAppear { animate = true }
+        .onDisappear { animate = false }
     }
 }
 
