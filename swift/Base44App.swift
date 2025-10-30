@@ -104,59 +104,7 @@ struct AssistiveHeroCard: View {
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Readiness")
-                            .font(.footnote.weight(.semibold))
-                            .textCase(.uppercase)
-                            .foregroundStyle(.white.opacity(0.7))
-
-                        Spacer()
-
-                        Text(readiness.formattedPercentage)
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                    }
-
-                    Text(readiness.statusLabel)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.merlot)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.white.opacity(0.92))
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HStack(alignment: .center, spacing: 16) {
-                        ReadinessRing(progress: readiness.clampedProgress)
-                            .frame(width: 72, height: 72)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Readiness snapshot")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.white)
-
-                            Text(readiness.detail)
-                                .font(.footnote)
-                                .foregroundStyle(.white.opacity(0.85))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .padding(.vertical, 18)
-                    .padding(.horizontal, 20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(.white.opacity(0.12))
-                    )
-                }
-                .padding(.vertical, 22)
-                .padding(.horizontal, 22)
-                .background(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(.white.opacity(0.08))
-                )
+                ReadinessStatusCard(readiness: readiness)
             }
 
             Divider()
@@ -192,29 +140,105 @@ struct AssistiveHeroCard: View {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-private struct ReadinessRing: View {
+private struct ReadinessStatusCard: View {
+    let readiness: EmergencyReadiness
+
+    var body: some View {
+        VStack {
+            VStack(spacing: 16) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("READINESS")
+                            .font(.caption.bold())
+                            .textCase(.uppercase)
+                            .foregroundStyle(.white.opacity(0.8))
+
+                        Text(readiness.statusLabel)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.white.opacity(0.2))
+                            )
+                    }
+
+                    Spacer()
+
+                    Text(readiness.formattedPercentage)
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+
+                Divider()
+                    .overlay(Color.white.opacity(0.25))
+                    .padding(.vertical, 12)
+
+                HStack(alignment: .center, spacing: 16) {
+                    ReadinessProgressCircle(progress: readiness.clampedProgress)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Readiness snapshot")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+
+                        Text(readiness.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.15))
+                )
+            }
+            .padding(20)
+            .background(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.6)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .cornerRadius(20)
+        }
+        .padding()
+        .frame(maxWidth: 300)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct ReadinessProgressCircle: View {
     let progress: Double
 
     var body: some View {
         ZStack {
             Circle()
-                .strokeBorder(.white.opacity(0.25), lineWidth: 10)
+                .stroke(Color.white.opacity(0.25), lineWidth: 8)
 
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
-                    BridgeAITheme.readinessGradient,
-                    style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round)
+                    AngularGradient(
+                        gradient: Gradient(colors: [Color.blue.opacity(0.9), Color.blue.opacity(0.6)]),
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
 
             Circle()
-                .fill(.white.opacity(0.18))
-                .frame(width: 16, height: 16)
-                .offset(y: -38)
+                .fill(Color.white.opacity(0.15))
+                .frame(width: 18, height: 18)
+                .offset(y: -28)
                 .rotationEffect(.degrees(progress * 360))
                 .opacity(progress > 0 ? 1 : 0)
         }
+        .frame(width: 64, height: 64)
     }
 }
 
