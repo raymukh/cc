@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 // MARK: - Entry Point
 @available(iOS 16.0, macOS 13.0, *)
@@ -1814,6 +1815,7 @@ struct LocationSafetyView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct LocationHeroCard: View {
     let status: LocationStatus
+    @State private var isShowingTrail = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -1847,7 +1849,9 @@ struct LocationHeroCard: View {
                 }
             }
 
-            Button("Share live trail") {}
+            Button("Share live trail") {
+                isShowingTrail = true
+            }
                 .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
         }
         .padding(26)
@@ -1859,7 +1863,87 @@ struct LocationHeroCard: View {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(.white.opacity(0.1))
         )
+        .sheet(isPresented: $isShowingTrail) {
+            LocationTrailSheet(status: status)
+        }
     }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct LocationTrailSheet: View {
+    let status: LocationStatus
+    @Environment(\.dismiss) private var dismiss
+    @State private var region: MKCoordinateRegion
+    private let annotations: [LocationTrailAnnotation]
+
+    init(status: LocationStatus) {
+        self.status = status
+        self.annotations = [LocationTrailAnnotation(coordinate: status.coordinate)]
+        _region = State(
+            initialValue: MKCoordinateRegion(
+                center: status.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            )
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Map(coordinateRegion: $region, annotationItems: annotations) { annotation in
+                    MapMarker(coordinate: annotation.coordinate, tint: BridgeAITheme.primary)
+                }
+                    .overlay(alignment: .topLeading) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Sharing live location", systemImage: "antenna.radiowaves.left.and.right")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                            Text("Broadcasting trail to emergency contacts and \(status.currentLabel).")
+                                .font(.footnote)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .padding()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+                VStack(spacing: 12) {
+                    Text("Location trail is active")
+                        .font(.headline)
+                    Text("Contacts see live updates. Auto-expiring in \(status.autoExpireMinutes) minutes after resolution.")
+                        .font(.subheadline)
+                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+
+                Button("Stop sharing") {
+                    dismiss()
+                }
+                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+            }
+            .padding(24)
+            .background(BridgeAITheme.background)
+            .navigationTitle("Live trail")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct LocationTrailAnnotation: Identifiable {
+    let id = UUID()
+    let coordinate: CLLocationCoordinate2D
 }
 
 @available(iOS 16.0, macOS 13.0, *)
@@ -2754,6 +2838,7 @@ struct LocationStatus {
     let currentLabel: String
     let updated: String
     let autoExpireMinutes: Int
+    let coordinate: CLLocationCoordinate2D
 }
 
 struct SafeZone: Identifiable {
@@ -2798,7 +2883,8 @@ final class LocationModel: ObservableObject {
             status: LocationStatus(
                 currentLabel: "Downtown response hub",
                 updated: "Updated 2 min ago",
-                autoExpireMinutes: 45
+                autoExpireMinutes: 45,
+                coordinate: CLLocationCoordinate2D(latitude: 34.0522, longitude: -118.2437)
             ),
             safeZones: [
                 SafeZone(name: "Home base", window: "Arrive by 7:30 PM on weekdays", isMonitoring: true, note: "Auto-share with Taylor and Jordan."),
