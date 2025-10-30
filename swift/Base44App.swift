@@ -2071,19 +2071,33 @@ struct NearbySupportSection: View {
 }
 
 // MARK: - Courses Page
+
+enum CourseRoute: Hashable {
+    case featured
+    case module(CourseModule.ID)
+}
+
 @available(iOS 16.0, macOS 13.0, *)
 struct CourseLibraryView: View {
     @ObservedObject var model: CourseModel
+    @State private var path: [CourseRoute] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 28) {
-                    CourseHeroCard(stats: model.stats)
+                    CourseHeroCard(stats: model.stats) {
+                        path.append(.featured)
+                    }
 
-                    FeaturedCourseSection(featured: model.featured)
+                    FeaturedCourseSection(course: $model.featured) {
+                        path.append(.featured)
+                        model.refreshStats()
+                    }
 
-                    CourseListSection(courses: $model.courses)
+                    CourseListSection(courses: $model.courses) { module in
+                        path.append(.module(module.id))
+                    }
 
                     CertificationSection(partners: model.partners)
                 }
@@ -2093,13 +2107,38 @@ struct CourseLibraryView: View {
             .background(BridgeAITheme.background.ignoresSafeArea())
             .navigationTitle("Courses")
             .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+            .navigationDestination(for: CourseRoute.self) { route in
+                switch route {
+                case .featured:
+                    CourseDetailView(course: $model.featured) {
+                        model.refreshStats()
+                    }
+                case .module(let id):
+                    if let moduleBinding = binding(for: id) {
+                        CourseDetailView(course: moduleBinding) {
+                            model.refreshStats()
+                        }
+                    } else {
+                        CourseUnavailableView()
+                    }
+                }
+            }
         }
+    }
+
+    private func binding(for id: CourseModule.ID) -> Binding<CourseModule>? {
+        guard let index = model.courses.firstIndex(where: { $0.id == id }) else { return nil }
+        return Binding(
+            get: { model.courses[index] },
+            set: { model.courses[index] = $0 }
+        )
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct CourseHeroCard: View {
     let stats: CourseStats
+    let onResume: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -2129,7 +2168,7 @@ struct CourseHeroCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            Button("Continue practice") {}
+            Button("Continue practice", action: onResume)
                 .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
         }
         .padding(26)
@@ -2146,31 +2185,32 @@ struct CourseHeroCard: View {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct FeaturedCourseSection: View {
-    let featured: CourseModule
+    @Binding var course: CourseModule
+    let onResume: () -> Void
 
     var body: some View {
         BridgeAISection(title: "Spotlight Simulation", subtitle: "Hands-on drills that adapt to your responses.") {
             VStack(alignment: .leading, spacing: 12) {
-                Text(featured.title)
+                Text(course.title)
                     .font(.title3.weight(.semibold))
 
-                Text(featured.description)
+                Text(course.description)
                     .font(.footnote)
                     .foregroundStyle(BridgeAITheme.textSecondary)
 
                 HStack {
                     Label("Duration", systemImage: "timer")
                     Spacer()
-                    Text(featured.duration)
+                    Text(course.duration)
                         .foregroundStyle(BridgeAITheme.accent)
                 }
                 .font(.caption.weight(.semibold))
 
-                ProgressView(value: featured.progress)
+                ProgressView(value: course.progress)
                     .tint(BridgeAITheme.primary)
                     .shadow(color: BridgeAITheme.primary.opacity(0.2), radius: 8, x: 0, y: 4)
 
-                Button("Resume module") {}
+                Button("Resume module", action: onResume)
                     .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
             }
             .padding(18)
@@ -2185,6 +2225,7 @@ struct FeaturedCourseSection: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct CourseListSection: View {
     @Binding var courses: [CourseModule]
+    let onOpen: (CourseModule) -> Void
 
     var body: some View {
         BridgeAISection(title: "Micro Lessons", subtitle: "Bite-sized practice with knowledge checks.") {
@@ -2222,10 +2263,17 @@ struct CourseListSection: View {
                         .font(.caption)
                         .foregroundStyle(BridgeAITheme.textSecondary)
 
-                        Button(course.isDownloaded ? "Remove download" : "Download for offline") {
-                            course.isDownloaded.toggle()
+                        HStack(spacing: 12) {
+                            Button(course.isDownloaded ? "Remove download" : "Download for offline") {
+                                course.isDownloaded.toggle()
+                            }
+                            .buttonStyle(BridgeAITertiaryButtonStyle())
+
+                            Button("Open module") {
+                                onOpen(course)
+                            }
+                            .buttonStyle(BridgeAIActionButtonStyle())
                         }
-                        .buttonStyle(BridgeAITertiaryButtonStyle())
                     }
                     .padding(18)
                     .background(
@@ -2235,6 +2283,350 @@ struct CourseListSection: View {
                 }
             }
         }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseDetailView: View {
+    @Binding var course: CourseModule
+    let onCourseUpdate: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                CourseOverviewCard(course: course)
+
+                BridgeAISection(title: "Lesson plan", subtitle: "Check off each activity as you complete it.") {
+                    VStack(spacing: 12) {
+                        ForEach(Array(course.lessons.enumerated()), id: \.element.id) { index, lesson in
+                            CourseLessonRow(lesson: lesson) {
+                                toggleLesson(at: index)
+                            }
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(BridgeAITheme.surface)
+                    )
+                }
+
+                if !course.quiz.isEmpty {
+                    BridgeAISection(title: "Knowledge check", subtitle: "Answer to lock in what you learned.") {
+                        VStack(spacing: 16) {
+                            ForEach(Array(course.quiz.enumerated()), id: \.element.id) { index, question in
+                                CourseQuizQuestionView(question: question) { choice in
+                                    selectAnswer(for: index, choiceIndex: choice)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !course.resources.isEmpty {
+                    BridgeAISection(title: "Resources", subtitle: "Downloadables and quick references.") {
+                        VStack(spacing: 12) {
+                            ForEach(Array(course.resources.enumerated()), id: \.element.id) { index, resource in
+                                CourseResourceRow(resource: resource) {
+                                    toggleResource(at: index)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 28)
+        }
+        .background(BridgeAITheme.background.ignoresSafeArea())
+        .navigationTitle(course.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func toggleLesson(at index: Int) {
+        guard course.lessons.indices.contains(index) else { return }
+        course.lessons[index].isComplete.toggle()
+        course.refreshProgress()
+        onCourseUpdate()
+    }
+
+    private func selectAnswer(for index: Int, choiceIndex: Int) {
+        guard course.quiz.indices.contains(index) else { return }
+        course.quiz[index].selectedIndex = choiceIndex
+        course.refreshProgress()
+        onCourseUpdate()
+    }
+
+    private func toggleResource(at index: Int) {
+        guard course.resources.indices.contains(index) else { return }
+        course.resources[index].isSaved.toggle()
+        onCourseUpdate()
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseUnavailableView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(BridgeAITheme.accent)
+            Text("Course unavailable")
+                .font(.headline)
+            Text("This module could not be found. Please try again from the library.")
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(BridgeAITheme.textSecondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BridgeAITheme.background.ignoresSafeArea())
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseOverviewCard: View {
+    let course: CourseModule
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(course.focusArea.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.textMuted)
+                Text(course.title)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+            }
+
+            Text(course.description)
+                .font(.footnote)
+                .foregroundStyle(BridgeAITheme.textSecondary)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ProgressView(value: course.progress)
+                    .tint(BridgeAITheme.primary)
+
+                HStack {
+                    Label("Progress", systemImage: "checkmark.seal")
+                        .labelStyle(BridgeAIIconLeadingLabelStyle())
+                        .foregroundStyle(BridgeAITheme.textSecondary)
+                    Spacer()
+                    Text("\(Int(course.progress * 100))%")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(BridgeAITheme.primary)
+                }
+            }
+
+            HStack(spacing: 16) {
+                Label(course.duration, systemImage: "clock")
+                Label(course.level, systemImage: "chart.bar.doc.horizontal")
+                Label(course.badge, systemImage: "star")
+            }
+            .font(.caption)
+            .foregroundStyle(BridgeAITheme.textSecondary)
+
+            if course.isComplete {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                    Text("Module complete! Great job staying ready.")
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(BridgeAITheme.accent)
+                .padding(.top, 4)
+            }
+        }
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseLessonRow: View {
+    let lesson: CourseLesson
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: lesson.isComplete ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(lesson.isComplete ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(lesson.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.textPrimary)
+                    Text(lesson.detail)
+                        .font(.footnote)
+                        .foregroundStyle(BridgeAITheme.textSecondary)
+                }
+
+                Spacer()
+
+                Text(lesson.duration)
+                    .font(.caption)
+                    .foregroundStyle(BridgeAITheme.textMuted)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(BridgeAITheme.surfaceSecondary)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseQuizQuestionView: View {
+    let question: CourseQuizQuestion
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(question.prompt)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BridgeAITheme.textPrimary)
+
+            VStack(spacing: 10) {
+                ForEach(Array(question.choices.enumerated()), id: \.offset) { index, choice in
+                    QuizChoiceRow(
+                        title: choice,
+                        state: state(for: index)
+                    ) {
+                        onSelect(index)
+                    }
+                }
+            }
+
+            if let selected = question.selectedIndex {
+                Text(selected == question.correctIndex ? "Great call—keep that reflex sharp." : question.explanation)
+                    .font(.caption)
+                    .foregroundStyle(selected == question.correctIndex ? BridgeAITheme.primary : BridgeAITheme.merlot)
+                    .padding(.top, 6)
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
+    }
+
+    private func state(for index: Int) -> QuizChoiceState {
+        guard let selected = question.selectedIndex else {
+            return .idle
+        }
+
+        if index == selected && selected == question.correctIndex {
+            return .correct
+        } else if index == selected {
+            return .incorrect
+        } else if index == question.correctIndex {
+            return .revealedCorrect
+        } else {
+            return .idle
+        }
+    }
+}
+
+enum QuizChoiceState {
+    case idle
+    case correct
+    case incorrect
+    case revealedCorrect
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct QuizChoiceRow: View {
+    let title: String
+    let state: QuizChoiceState
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: iconName)
+                    .font(.subheadline.weight(.semibold))
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                Spacer()
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .foregroundStyle(foreground)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(background)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var iconName: String {
+        switch state {
+        case .idle: return "circle"
+        case .correct: return "checkmark.circle.fill"
+        case .incorrect: return "xmark.circle.fill"
+        case .revealedCorrect: return "checkmark.seal"
+        }
+    }
+
+    private var background: Color {
+        switch state {
+        case .idle: return BridgeAITheme.surfaceSecondary
+        case .correct: return BridgeAITheme.primary.opacity(0.18)
+        case .incorrect: return BridgeAITheme.merlot.opacity(0.16)
+        case .revealedCorrect: return BridgeAITheme.primary.opacity(0.12)
+        }
+    }
+
+    private var foreground: Color {
+        switch state {
+        case .idle: return BridgeAITheme.textPrimary
+        case .correct, .revealedCorrect: return BridgeAITheme.primary
+        case .incorrect: return BridgeAITheme.merlot
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CourseResourceRow: View {
+    let resource: CourseResource
+    let onToggle: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: resource.icon)
+                .font(.title3)
+                .foregroundStyle(BridgeAITheme.primary)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(resource.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+                Text(resource.detail)
+                    .font(.caption)
+                    .foregroundStyle(BridgeAITheme.textSecondary)
+            }
+
+            Spacer()
+
+            Button(resource.isSaved ? "Saved" : "Save") {
+                onToggle()
+            }
+            .buttonStyle(resource.isSaved ? BridgeAITertiaryButtonStyle() : BridgeAIActionButtonStyle())
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
     }
 }
 
@@ -2906,7 +3298,37 @@ struct CourseStats {
     let streak: Int
 }
 
-struct CourseModule: Identifiable {
+struct CourseLesson: Identifiable, Hashable {
+    let id = UUID()
+    let title: String
+    let duration: String
+    let detail: String
+    var isComplete: Bool
+}
+
+struct CourseQuizQuestion: Identifiable, Hashable {
+    let id = UUID()
+    let prompt: String
+    let choices: [String]
+    let correctIndex: Int
+    var selectedIndex: Int?
+    let explanation: String
+
+    var isAnsweredCorrectly: Bool {
+        selectedIndex == correctIndex
+    }
+}
+
+struct CourseResource: Identifiable, Hashable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let icon: String
+    var isSaved: Bool
+    let link: String
+}
+
+struct CourseModule: Identifiable, Hashable {
     let id = UUID()
     let title: String
     let focusArea: String
@@ -2916,6 +3338,60 @@ struct CourseModule: Identifiable {
     var progress: Double
     var isDownloaded: Bool
     let description: String
+    var lessons: [CourseLesson]
+    var quiz: [CourseQuizQuestion]
+    var resources: [CourseResource]
+
+    var completionRatio: Double {
+        let lessonRatios = lessons.isEmpty ? [] : [Double(lessons.filter { $0.isComplete }.count) / Double(lessons.count)]
+        let quizRatios = quiz.isEmpty ? [] : [Double(quiz.filter { $0.isAnsweredCorrectly }.count) / Double(quiz.count)]
+        let components = lessonRatios + quizRatios
+        guard !components.isEmpty else { return progress }
+        return min(1.0, max(0.0, components.reduce(0, +) / Double(components.count)))
+    }
+
+    var isComplete: Bool {
+        completionRatio >= 0.999
+    }
+
+    mutating func refreshProgress() {
+        progress = completionRatio
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+extension CourseModule {
+    static func make(
+        title: String,
+        focusArea: String,
+        duration: String,
+        level: String,
+        badge: String,
+        isDownloaded: Bool,
+        description: String,
+        lessons: [CourseLesson],
+        quiz: [CourseQuizQuestion],
+        resources: [CourseResource]
+    ) -> CourseModule {
+        var module = CourseModule(
+            title: title,
+            focusArea: focusArea,
+            duration: duration,
+            level: level,
+            badge: badge,
+            progress: 0,
+            isDownloaded: isDownloaded,
+            description: description,
+            lessons: lessons,
+            quiz: quiz,
+            resources: resources
+        )
+        module.refreshProgress()
+        return module
+    }
 }
 
 struct CertificationPartner: Identifiable {
@@ -2939,47 +3415,122 @@ final class CourseModel: ObservableObject {
     }
 
     static func sample() -> CourseModel {
-        let featured = CourseModule(
+        let featured = CourseModule.make(
             title: "Mass casualty triage drill",
             focusArea: "Rapid patient assessment",
             duration: "15 min",
             level: "Intermediate",
             badge: "Simulation",
-            progress: 0.55,
             isDownloaded: true,
-            description: "Practice START triage with branching decisions that adapt to your choices."
+            description: "Practice START triage with branching decisions that adapt to your choices.",
+            lessons: [
+                CourseLesson(title: "Scene size-up", duration: "3 min", detail: "Stabilize the area and identify walking wounded.", isComplete: true),
+                CourseLesson(title: "Primary triage", duration: "4 min", detail: "Tag patients by respiration, perfusion, and mental status.", isComplete: false),
+                CourseLesson(title: "Secondary reassessment", duration: "4 min", detail: "Reprioritize as conditions change and resources arrive.", isComplete: false)
+            ],
+            quiz: [
+                CourseQuizQuestion(
+                    prompt: "What is the immediate priority after calling out for walking wounded?",
+                    choices: ["Begin CPR on the nearest patient", "Establish a casualty collection point", "Assess non-ambulatory patients"],
+                    correctIndex: 2,
+                    selectedIndex: nil,
+                    explanation: "Non-ambulatory patients are assessed next to determine critical needs."
+                ),
+                CourseQuizQuestion(
+                    prompt: "Which color tag is used for expectant patients in START triage?",
+                    choices: ["Green", "Black", "Yellow", "Red"],
+                    correctIndex: 1,
+                    selectedIndex: nil,
+                    explanation: "Black tags denote expectant patients requiring comfort measures."
+                )
+            ],
+            resources: [
+                CourseResource(title: "START triage quick card", detail: "Printable pocket guide for rapid reference.", icon: "doc.text", isSaved: true, link: "https://ready.example.com/start-card"),
+                CourseResource(title: "ICS role checklist", detail: "Clarify responsibilities for incoming responders.", icon: "checklist", isSaved: false, link: "https://ready.example.com/ics-roles")
+            ]
         )
 
         let courses = [
-            CourseModule(
+            CourseModule.make(
                 title: "Hands-only CPR essentials",
                 focusArea: "First Aid",
                 duration: "7 min",
                 level: "Beginner",
                 badge: "Core",
-                progress: 0.8,
                 isDownloaded: true,
-                description: "Learn compression cadence, depth, and rotation strategy."
+                description: "Learn compression cadence, depth, and rotation strategy.",
+                lessons: [
+                    CourseLesson(title: "Assess responsiveness", duration: "1 min", detail: "Tap and shout before you intervene.", isComplete: true),
+                    CourseLesson(title: "Call for resources", duration: "1 min", detail: "Delegate someone to dial 911 and grab an AED.", isComplete: false),
+                    CourseLesson(title: "Deliver compressions", duration: "4 min", detail: "Follow the beat with two-inch depth and full recoil.", isComplete: false)
+                ],
+                quiz: [
+                    CourseQuizQuestion(
+                        prompt: "What rate should chest compressions maintain?",
+                        choices: ["80 per minute", "100-120 per minute", "140 per minute"],
+                        correctIndex: 1,
+                        selectedIndex: nil,
+                        explanation: "Staying within 100-120 compressions per minute maximizes perfusion."
+                    )
+                ],
+                resources: [
+                    CourseResource(title: "CPR metronome playlist", detail: "Songs with the ideal compression cadence.", icon: "music.note", isSaved: false, link: "https://ready.example.com/cpr-playlist"),
+                    CourseResource(title: "AED quick start", detail: "Visual steps for common AED models.", icon: "bolt.heart", isSaved: false, link: "https://ready.example.com/aed-guide")
+                ]
             ),
-            CourseModule(
+            CourseModule.make(
                 title: "Stop the bleed fundamentals",
                 focusArea: "Trauma response",
                 duration: "9 min",
                 level: "Intermediate",
                 badge: "Skill",
-                progress: 0.35,
                 isDownloaded: false,
-                description: "Tourniquet placement drills with timed challenges."
+                description: "Tourniquet placement drills with timed challenges.",
+                lessons: [
+                    CourseLesson(title: "Identify life-threatening bleed", duration: "2 min", detail: "Look for pooling blood and soaked clothing.", isComplete: true),
+                    CourseLesson(title: "Apply direct pressure", duration: "3 min", detail: "Use clean cloth or gloved hands to compress.", isComplete: false),
+                    CourseLesson(title: "Secure tourniquet", duration: "3 min", detail: "Place two inches above the wound and twist until bleeding stops.", isComplete: false)
+                ],
+                quiz: [
+                    CourseQuizQuestion(
+                        prompt: "How long can a tourniquet safely remain in place before reassessment?",
+                        choices: ["15 minutes", "2 hours", "4 hours"],
+                        correctIndex: 1,
+                        selectedIndex: nil,
+                        explanation: "Aim to hand off to advanced care within two hours whenever possible."
+                    )
+                ],
+                resources: [
+                    CourseResource(title: "Bleeding control kit", detail: "Inventory list for go-bags and classrooms.", icon: "bandage.fill", isSaved: false, link: "https://ready.example.com/bleed-kit"),
+                    CourseResource(title: "Tourniquet placement poster", detail: "Step-by-step reference for public areas.", icon: "map", isSaved: true, link: "https://ready.example.com/tourniquet-poster")
+                ]
             ),
-            CourseModule(
+            CourseModule.make(
                 title: "Family wildfire plan",
                 focusArea: "Disaster readiness",
                 duration: "5 min",
                 level: "All levels",
                 badge: "Plan",
-                progress: 0.1,
                 isDownloaded: false,
-                description: "Design evacuation roles and communication routines."
+                description: "Design evacuation roles and communication routines.",
+                lessons: [
+                    CourseLesson(title: "Create alert zones", duration: "2 min", detail: "Map evacuation routes and staging spots.", isComplete: false),
+                    CourseLesson(title: "Assign roles", duration: "1 min", detail: "Designate who handles pets, kits, and status updates.", isComplete: false),
+                    CourseLesson(title: "Practice communications", duration: "2 min", detail: "Test text templates and check-in cadence.", isComplete: false)
+                ],
+                quiz: [
+                    CourseQuizQuestion(
+                        prompt: "Which channel is best for family status updates when power is out?",
+                        choices: ["Social media", "Group text with delivery receipts", "Video call"],
+                        correctIndex: 1,
+                        selectedIndex: nil,
+                        explanation: "Texts with delivery receipts work over weak cellular networks."
+                    )
+                ],
+                resources: [
+                    CourseResource(title: "Go-bag checklist", detail: "Seasonal essentials and medication tracker.", icon: "bag", isSaved: false, link: "https://ready.example.com/go-bag"),
+                    CourseResource(title: "Neighborhood evacuation map", detail: "Identify red flag zones and safety corridors.", icon: "map.fill", isSaved: false, link: "https://ready.example.com/wildfire-map")
+                ]
             )
         ]
 
@@ -2989,12 +3540,28 @@ final class CourseModel: ObservableObject {
             CertificationPartner(name: "SafeTech Labs", focus: "Digital crisis management")
         ]
 
-        return CourseModel(
-            stats: CourseStats(completed: 18, streak: 6),
+        let initialStats = CourseStats(
+            completed: ([featured] + courses).filter { $0.isComplete }.count,
+            streak: 6
+        )
+
+        let model = CourseModel(
+            stats: initialStats,
             featured: featured,
             courses: courses,
             partners: partners
         )
+        model.refreshStats()
+        return model
+    }
+
+    func refreshStats() {
+        let modules = [featured] + courses
+        let completed = modules.filter { $0.isComplete }.count
+        let averageProgress = modules.reduce(0.0) { $0 + $1.progress } / Double(max(modules.count, 1))
+        let streakBaseline = stats.streak
+        let recalculatedStreak = max(1, Int(round(averageProgress * 7)))
+        stats = CourseStats(completed: completed, streak: max(streakBaseline, recalculatedStreak))
     }
 }
 
