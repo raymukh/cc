@@ -112,7 +112,7 @@ struct AssistiveHeroCard: View {
                     title: "AI Search",
                     detail: "Quickly pull any safety checklist you need.",
                     isActive: isSearchActive,
-                    action: toggleSearch
+                    action: { toggleSearch() }
                 )
 
                 if isSearchActive {
@@ -129,7 +129,7 @@ struct AssistiveHeroCard: View {
                     title: "Voice Assist",
                     detail: "Ask for next steps or confirm actions hands-free.",
                     isActive: isVoiceActive,
-                    action: toggleVoice
+                    action: { toggleVoice() }
                 )
 
                 if isVoiceActive {
