@@ -69,6 +69,8 @@ struct AssistiveSupportView: View {
 
                     CalmModeSection(settings: $model.calmSettings)
 
+                    EmergencyReadinessCard(readiness: model.readiness)
+
                     AssistiveScenarioSection(scenarios: $model.scenarios)
 
                     SupplyCartSection(items: $model.supplyItems)
@@ -165,6 +167,88 @@ struct MetricBadge: View {
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.white.opacity(0.06))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyReadinessCard: View {
+    let readiness: EmergencyReadiness
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 24) {
+            VStack(alignment: .leading, spacing: 16) {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Emergency Readiness")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+
+                        Text(readiness.detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } icon: {
+                    Image(systemName: "shield.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white.opacity(0.95))
+                        .font(.system(size: 26, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(.white.opacity(0.18))
+                        )
+                }
+                .labelStyle(BridgeAIIconLeadingLabelStyle())
+
+                HStack(spacing: 12) {
+                    Text(readiness.formattedPercentage)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text(readiness.statusLabel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.merlot)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.white.opacity(0.92))
+                        )
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            ZStack {
+                Circle()
+                    .strokeBorder(.white.opacity(0.2), lineWidth: 12)
+
+                Circle()
+                    .trim(from: 0, to: readiness.clampedProgress)
+                    .stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(-90))
+
+                Circle()
+                    .fill(.white.opacity(0.16))
+                    .frame(width: 18, height: 18)
+                    .offset(y: -70)
+                    .rotationEffect(.degrees(readiness.clampedProgress * 360))
+                    .opacity(readiness.clampedProgress > 0 ? 1 : 0)
+            }
+            .frame(width: 140, height: 140)
+        }
+        .padding(.vertical, 28)
+        .padding(.horizontal, 26)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(BridgeAITheme.readinessGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(.white.opacity(0.08))
         )
     }
 }
@@ -1451,6 +1535,16 @@ struct BridgeAISection<Content: View>: View {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
+struct BridgeAIIconLeadingLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
 struct BridgeAIActionButtonStyle: ButtonStyle {
     var fullWidth: Bool = false
 
@@ -1554,6 +1648,21 @@ struct AssistiveOverview {
     let summary: String
 }
 
+struct EmergencyReadiness {
+    var percentage: Double
+    var statusLabel: String
+    var detail: String
+
+    var clampedProgress: Double {
+        max(0, min(1, percentage / 100))
+    }
+
+    var formattedPercentage: String {
+        let rounded = Int((percentage).rounded())
+        return "\(rounded)%"
+    }
+}
+
 struct CrisisScenario: Identifiable {
     let id = UUID()
     let title: String
@@ -1592,6 +1701,7 @@ final class AssistiveModel: ObservableObject {
     private let supplyStore = SupplyItemStore()
 
     @Published var overview: AssistiveOverview
+    @Published var readiness: EmergencyReadiness
     @Published var scenarios: [CrisisScenario]
     @Published var supplyItems: [SupplyItem] {
         didSet {
@@ -1600,8 +1710,9 @@ final class AssistiveModel: ObservableObject {
     }
     @Published var calmSettings: CalmSettings
 
-    init(overview: AssistiveOverview, scenarios: [CrisisScenario], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
+    init(overview: AssistiveOverview, readiness: EmergencyReadiness, scenarios: [CrisisScenario], supplyItems: [SupplyItem], calmSettings: CalmSettings) {
         self.overview = overview
+        self.readiness = readiness
         self.scenarios = scenarios
         self.calmSettings = calmSettings
 
@@ -1614,6 +1725,11 @@ final class AssistiveModel: ObservableObject {
             overview: AssistiveOverview(
                 title: "Be Prepared, Not Scared",
                 summary: "Review these disaster plans to know exactly what to do when emergencies happen. Each plan includes before, during, and after guidance tailored to your safety."
+            ),
+            readiness: EmergencyReadiness(
+                percentage: 0,
+                statusLabel: "Needs Work",
+                detail: "Your current preparedness level based on contacts, supplies, and training."
             ),
             scenarios: [
                 CrisisScenario(
@@ -2132,6 +2248,15 @@ enum BridgeAITheme {
 
     static let primaryGradient = LinearGradient(
         colors: [primary, primary.opacity(0.75)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let readinessGradient = LinearGradient(
+        colors: [
+            Color(red: 0.086, green: 0.392, blue: 0.765),
+            Color(red: 0.133, green: 0.59, blue: 0.847)
+        ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
