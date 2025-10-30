@@ -404,7 +404,7 @@ private struct AssistiveVoicePanel: View {
 
                 Spacer()
 
-                Button(action: onDismiss) {
+                Button(action: handleDismiss) {
                     Label("Stop listening", systemImage: "xmark")
                         .labelStyle(.iconOnly)
                         .font(.footnote.weight(.semibold))
@@ -419,15 +419,20 @@ private struct AssistiveVoicePanel: View {
                 .accessibilityLabel("Close voice assist")
             }
 
-            RecordingMicrophoneView()
+            Button(action: toggleRecording) {
+                RecordingMicrophoneView(isRecording: isRecording)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isRecording ? "Pause microphone" : "Start microphone")
 
-            Text("Listening… describe what’s happening or stay quiet and we’ll keep monitoring.")
+            Text(isRecording ? "Listening… describe what’s happening or stay quiet and we’ll keep monitoring." : "Microphone paused. Tap the mic to start a hands-free request.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
 
             Button("End session") {
-                onDismiss()
+                handleDismiss()
             }
             .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
         }
@@ -442,36 +447,68 @@ private struct AssistiveVoicePanel: View {
                 .strokeBorder(.white.opacity(0.16))
         )
     }
+
+    @State private var isRecording = false
+
+    private func toggleRecording() {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+            isRecording.toggle()
+        }
+    }
+
+    private func handleDismiss() {
+        isRecording = false
+        onDismiss()
+    }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 private struct RecordingMicrophoneView: View {
+    var isRecording: Bool
     @State private var animate = false
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(BridgeAITheme.primary.opacity(0.35), lineWidth: 3)
+                .stroke(BridgeAITheme.primary.opacity(isRecording ? 0.35 : 0.18), lineWidth: 3)
                 .frame(width: 96, height: 96)
-                .scaleEffect(animate ? 1.1 : 0.85)
-                .opacity(animate ? 0.5 : 0.25)
+                .scaleEffect(animate ? 1.12 : 0.95)
+                .opacity(isRecording ? (animate ? 0.55 : 0.28) : 0.2)
 
             Circle()
-                .fill(BridgeAITheme.primary.opacity(0.25))
+                .fill(BridgeAITheme.primary.opacity(isRecording ? 0.3 : 0.18))
                 .frame(width: 76, height: 76)
 
             Image(systemName: "mic.fill")
                 .font(.system(size: 32, weight: .semibold))
                 .foregroundStyle(.white)
+                .overlay {
+                    if !isRecording {
+                        Image(systemName: "mic.slash")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                }
         }
         .frame(height: 96)
         .onAppear {
-            animate = true
+            animate = isRecording
         }
         .onDisappear {
             animate = false
         }
+        .onChange(of: isRecording) { newValue in
+            animate = newValue
+        }
         .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: animate)
+        .overlay(alignment: .bottom) {
+            if isRecording {
+                Capsule()
+                    .fill(BridgeAITheme.primary.opacity(0.3))
+                    .frame(width: 46, height: 6)
+                    .padding(.bottom, -14)
+            }
+        }
     }
 }
 
