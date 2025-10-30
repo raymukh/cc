@@ -65,9 +65,10 @@ struct AssistiveSupportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
+                    ReadinessStatusCard(readiness: model.readiness)
+
                     AssistiveHeroCard(
-                        overview: model.overview,
-                        readiness: model.readiness
+                        overview: model.overview
                     )
 
                     CalmModeSection(settings: $model.calmSettings)
@@ -89,23 +90,18 @@ struct AssistiveSupportView: View {
 @available(iOS 16.0, macOS 13.0, *)
 struct AssistiveHeroCard: View {
     let overview: AssistiveOverview
-    let readiness: EmergencyReadiness
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(overview.title)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 24) {
+            Text(overview.title)
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
 
-                Text(overview.summary)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                ReadinessStatusCard(readiness: readiness)
-            }
+            Text(overview.summary)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.white.opacity(0.92))
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
 
             Divider()
                 .overlay(.white.opacity(0.18))
@@ -147,7 +143,7 @@ private struct ReadinessStatusCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Automation readiness")
+                    Text("Automation status")
                         .font(.caption.bold())
                         .textCase(.uppercase)
                         .foregroundStyle(.white.opacity(0.85))
@@ -690,7 +686,7 @@ struct EmergencyStatusCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Automation readiness")
+            Text("Automation status")
                 .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
@@ -698,6 +694,7 @@ struct EmergencyStatusCard: View {
                 HStack {
                     Label("Trigger phrase", systemImage: "mic")
                         .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
                     Spacer()
                     Text(model.triggerPhrase)
                         .font(.body)
@@ -709,6 +706,7 @@ struct EmergencyStatusCard: View {
                 HStack {
                     Label("Primary channel", systemImage: "antenna.radiowaves.left.and.right")
                         .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
                     Spacer()
                     Text(model.primaryChannel)
                         .font(.body)
