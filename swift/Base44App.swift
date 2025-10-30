@@ -962,7 +962,7 @@ struct EmergencyStatusCard: View {
                 .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     Label("Trigger phrase", systemImage: "mic")
                         .font(.callout.weight(.semibold))
@@ -987,15 +987,37 @@ struct EmergencyStatusCard: View {
 
                 Divider().overlay(.white.opacity(0.2))
 
-                HStack(spacing: 18) {
-                    MetricBadge(icon: "bolt.fill", title: "AI Response", detail: "Launches calls, GPS shares, and contact alerts instantly.")
+                VStack(spacing: 16) {
+                    EmergencyModeActivationButton(
+                        icon: "bolt.fill",
+                        title: "AI Response",
+                        detail: "Launches calls, GPS shares, and contact alerts instantly.",
+                        isActive: isVoiceOverlayActive,
+                        action: { toggleVoiceOverlay() }
+                    )
 
-                    MetricBadge(icon: "person.text.rectangle", title: "Multi-Sensory", detail: "Voice, visuals, and haptics stay active even when screens lock.")
+                    if isVoiceOverlayActive {
+                        EmergencyVoiceOverlay(onDismiss: { toggleVoiceOverlay(forceClose: true) })
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    EmergencyModeActivationButton(
+                        icon: "person.text.rectangle",
+                        title: "Multi-Sensory",
+                        detail: "Voice, visuals, and haptics stay active even when screens lock.",
+                        isActive: isMultiSensoryOverlayActive,
+                        action: { toggleMultiSensoryOverlay() }
+                    )
+
+                    if isMultiSensoryOverlayActive {
+                        EmergencyMultiSensoryOverlay(onDismiss: { toggleMultiSensoryOverlay(forceClose: true) })
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
             }
 
-            Button("Run live drill") {
-                model.scheduleDrill()
+            Button("Call 911") {
+                model.callEmergencyServices()
             }
             .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
         }
@@ -1008,6 +1030,35 @@ struct EmergencyStatusCard: View {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(.white.opacity(0.1))
         )
+    }
+
+    @State private var isVoiceOverlayActive = false
+    @State private var isMultiSensoryOverlayActive = false
+
+    private func toggleVoiceOverlay(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isVoiceOverlayActive = false
+            } else {
+                isVoiceOverlayActive.toggle()
+            }
+            if isVoiceOverlayActive {
+                isMultiSensoryOverlayActive = false
+            }
+        }
+    }
+
+    private func toggleMultiSensoryOverlay(forceClose: Bool = false) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            if forceClose {
+                isMultiSensoryOverlayActive = false
+            } else {
+                isMultiSensoryOverlayActive.toggle()
+            }
+            if isMultiSensoryOverlayActive {
+                isVoiceOverlayActive = false
+            }
+        }
     }
 }
 
