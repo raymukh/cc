@@ -106,28 +106,53 @@ struct AssistiveHeroCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(alignment: .trailing, spacing: 10) {
+                VStack(alignment: .trailing, spacing: 14) {
                     Text("Readiness")
                         .font(.footnote.weight(.semibold))
                         .textCase(.uppercase)
                         .foregroundStyle(.white.opacity(0.7))
 
-                    HStack(spacing: 10) {
-                        Text(readiness.formattedPercentage)
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                    Text(readiness.formattedPercentage)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
 
-                        Text(readiness.statusLabel)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(BridgeAITheme.merlot)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(.white.opacity(0.9))
-                            )
+                    Text(readiness.statusLabel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.merlot)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.white.opacity(0.9))
+                        )
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+
+                    HStack(alignment: .center, spacing: 16) {
+                        ReadinessRing(progress: readiness.clampedProgress)
+                            .frame(width: 72, height: 72)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Readiness snapshot")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.white)
+
+                            Text(readiness.detail)
+                                .font(.footnote)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .padding(.vertical, 14)
+                    .padding(.horizontal, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(.white.opacity(0.12))
+                    )
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                .frame(maxWidth: 240)
             }
 
             Divider()
@@ -147,27 +172,6 @@ struct AssistiveHeroCard: View {
                 )
             }
 
-            HStack(alignment: .center, spacing: 18) {
-                ReadinessRing(progress: readiness.clampedProgress)
-                    .frame(width: 86, height: 86)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Readiness snapshot")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text(readiness.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.88))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(18)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.white.opacity(0.12))
-            )
         }
         .padding(.vertical, 28)
         .padding(.horizontal, 26)
