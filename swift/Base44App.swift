@@ -542,6 +542,28 @@ struct EmergencyAutomationView: View {
                 VStack(spacing: 28) {
                     EmergencyStatusCard(model: model)
 
+                    EmergencyContactsSection(contacts: model.contacts)
+
+                    EmergencyTriggerPanel(
+                        mode: .voice,
+                        model: model,
+                        categories: model.categories
+                    )
+
+                    EmergencyTriggerPanel(
+                        mode: .silent,
+                        model: model,
+                        categories: model.categories
+                    )
+
+                    if let activeEmergency = model.activeEmergency {
+                        EmergencyActivationStatusView(
+                            state: activeEmergency,
+                            onCall911: { model.callEmergencyServices() },
+                            onDeactivate: { model.deactivateEmergency() }
+                        )
+                    }
+
                     EmergencyActionSection(actions: $model.actions)
 
                     EscalationPathSection(pathways: $model.pathways)
@@ -611,6 +633,248 @@ struct EmergencyStatusCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(.white.opacity(0.1))
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyContactsSection: View {
+    let contacts: [EmergencyContact]
+
+    var body: some View {
+        BridgeAISection(
+            title: "Emergency contacts",
+            subtitle: "Everyone who receives instant notifications when help is needed."
+        ) {
+            VStack(spacing: 14) {
+                ForEach(contacts) { contact in
+                    EmergencyContactRow(contact: contact)
+                }
+
+                Button("Manage contacts") {}
+                    .buttonStyle(BridgeAITertiaryButtonStyle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyContactRow: View {
+    let contact: EmergencyContact
+
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(contact.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.textPrimary)
+
+                Text(contact.relationship)
+                    .font(.caption)
+                    .foregroundStyle(BridgeAITheme.textMuted)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Label(contact.phone, systemImage: "phone")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BridgeAITheme.primary)
+
+                if contact.isPrimary {
+                    Text("Primary contact")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(BridgeAITheme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(BridgeAITheme.primary.opacity(0.08))
+                        )
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(BridgeAITheme.surface)
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyTriggerPanel: View {
+    let mode: EmergencyMode
+    @ObservedObject var model: EmergencyModel
+    let categories: [EmergencyCategory]
+
+    @State private var contextNote: String = ""
+
+    private var columns: [GridItem] {
+        [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+    }
+
+    var body: some View {
+        BridgeAISection(title: mode.displayTitle, subtitle: mode.subtitle) {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(mode.prompt)
+                        .font(.footnote)
+                        .foregroundStyle(BridgeAITheme.textMuted)
+
+                    TextField("Add extra details for responders", text: $contextNote, axis: .vertical)
+                        .lineLimit(1...3)
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(BridgeAITheme.surface)
+                        )
+                }
+
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(categories) { category in
+                        Button {
+                            model.activateEmergency(mode: mode, category: category, customMessage: contextNote)
+                        } label: {
+                            EmergencyCategoryButton(
+                                category: category,
+                                isSelected: model.activeEmergency?.mode == mode &&
+                                    model.activeEmergency?.category.id == category.id
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text("Selecting an option immediately alerts your contacts and begins location tracking.")
+                    .font(.caption)
+                    .foregroundStyle(BridgeAITheme.textMuted)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyCategoryButton: View {
+    let category: EmergencyCategory
+    var isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: category.icon)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : BridgeAITheme.primary)
+                .padding(12)
+                .background(
+                    Circle()
+                        .fill(isSelected ? BridgeAITheme.primary.opacity(0.4) : BridgeAITheme.primary.opacity(0.12))
+                )
+
+            Text(category.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : BridgeAITheme.textPrimary)
+
+            Text(category.description)
+                .font(.caption)
+                .foregroundStyle(isSelected ? .white.opacity(0.9) : BridgeAITheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(isSelected ? BridgeAITheme.primary : BridgeAITheme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(
+                    isSelected ? BridgeAITheme.primary.opacity(0.0) : BridgeAITheme.primary.opacity(0.12),
+                    lineWidth: 1
+                )
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EmergencyActivationStatusView: View {
+    let state: ActiveEmergencyState
+    var onCall911: () -> Void
+    var onDeactivate: () -> Void
+
+    private var timestampFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(12)
+                    .background(
+                        Circle().fill(.white.opacity(0.2))
+                    )
+                Text("Emergency active: \(state.mode.displayTitle) – \(state.category.title)")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Notification sent to emergency contacts", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.white)
+                    .font(.subheadline.weight(.semibold))
+
+                Label("Location tracking is active", systemImage: "location.circle.fill")
+                    .foregroundStyle(.white)
+                    .font(.subheadline.weight(.semibold))
+
+                if !state.note.isEmpty {
+                    Label("Note shared: \(state.note)", systemImage: "text.bubble")
+                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.footnote)
+                }
+
+                Text("Activated at \(timestampFormatter.string(from: state.activatedAt))")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+
+            HStack(spacing: 12) {
+                Button("Call 911", action: onCall911)
+                    .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+
+                Button(action: onDeactivate) {
+                    Text("I'm safe – Deactivate")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BridgeAITheme.merlot)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.white)
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(.white.opacity(0.35))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(26)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(BridgeAITheme.merlotGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(.white.opacity(0.12))
         )
     }
 }
@@ -1456,6 +1720,59 @@ final class SupplyItemStore {
     }
 }
 
+struct EmergencyContact: Identifiable {
+    let id = UUID()
+    var name: String
+    var relationship: String
+    var phone: String
+    var isPrimary: Bool
+}
+
+enum EmergencyMode: String {
+    case voice
+    case silent
+
+    var displayTitle: String {
+        switch self {
+        case .voice: return "Voice Mode"
+        case .silent: return "No Voice Mode"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .voice:
+            return "Say a phrase or tap a scenario to launch full emergency automation."
+        case .silent:
+            return "Use discreet triggers when you cannot speak but still need help immediately."
+        }
+    }
+
+    var prompt: String {
+        switch self {
+        case .voice:
+            return "Add any context responders should hear once the call connects."
+        case .silent:
+            return "Type silent instructions or details to send with your alert."
+        }
+    }
+}
+
+struct EmergencyCategory: Identifiable, Hashable {
+    let id = UUID()
+    var title: String
+    var icon: String
+    var description: String
+}
+
+struct ActiveEmergencyState: Identifiable {
+    let id = UUID()
+    var mode: EmergencyMode
+    var category: EmergencyCategory
+    var note: String
+    var activatedAt: Date
+}
+
 struct EmergencyAction: Identifiable {
     let id = UUID()
     let title: String
@@ -1497,34 +1814,74 @@ struct EvidenceSettings {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
+@MainActor
 final class EmergencyModel: ObservableObject {
     @Published var triggerPhrase: String
     @Published var primaryChannel: String
+    @Published var contacts: [EmergencyContact]
     @Published var actions: [EmergencyAction]
     @Published var pathways: [EscalationPathway]
     @Published var evidenceSettings: EvidenceSettings
+    @Published var activeEmergency: ActiveEmergencyState?
 
-    init(triggerPhrase: String, primaryChannel: String, actions: [EmergencyAction], pathways: [EscalationPathway], evidenceSettings: EvidenceSettings) {
+    let categories: [EmergencyCategory]
+
+    init(
+        triggerPhrase: String,
+        primaryChannel: String,
+        contacts: [EmergencyContact],
+        actions: [EmergencyAction],
+        pathways: [EscalationPathway],
+        evidenceSettings: EvidenceSettings,
+        categories: [EmergencyCategory],
+        activeEmergency: ActiveEmergencyState? = nil
+    ) {
         self.triggerPhrase = triggerPhrase
         self.primaryChannel = primaryChannel
+        self.contacts = contacts
         self.actions = actions
         self.pathways = pathways
         self.evidenceSettings = evidenceSettings
+        self.categories = categories
+        self.activeEmergency = activeEmergency
     }
 
     func scheduleDrill() {
         // Placeholder for scheduling a drill notification or workflow
     }
 
+    func activateEmergency(mode: EmergencyMode, category: EmergencyCategory, customMessage: String) {
+        let trimmedNote = customMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        activeEmergency = ActiveEmergencyState(
+            mode: mode,
+            category: category,
+            note: trimmedNote,
+            activatedAt: .now
+        )
+    }
+
+    func deactivateEmergency() {
+        activeEmergency = nil
+    }
+
+    func callEmergencyServices() {
+        // Placeholder for direct dial integration
+    }
+
     static func sample() -> EmergencyModel {
         EmergencyModel(
             triggerPhrase: "Help me now",
-            primaryChannel: "911 bridge + 3 trusted contacts",
+            primaryChannel: "BridgeAI secure line",
+            contacts: [
+                EmergencyContact(name: "Taylor Morgan", relationship: "Partner", phone: "(415) 555-0198", isPrimary: true),
+                EmergencyContact(name: "Jordan Lee", relationship: "Parent", phone: "(312) 555-0056", isPrimary: false),
+                EmergencyContact(name: "Alex Kim", relationship: "Roommate", phone: "(206) 555-4421", isPrimary: false)
+            ],
             actions: [
                 EmergencyAction(
-                    title: "Dial emergency services",
-                    detail: "Places a call and transmits your live location.",
-                    icon: "phone.fill.arrow.up.right",
+                    title: "Call 911 dispatcher",
+                    detail: "Routes through the BridgeAI command desk with your location.",
+                    icon: "phone.and.waveform",
                     isEnabled: true,
                     requiresContactSelection: false,
                     contact: "",
@@ -1583,7 +1940,15 @@ final class EmergencyModel: ObservableObject {
                 videoEnabled: false,
                 smsFallback: true,
                 retention: .twentyFourHours
-            )
+            ),
+            categories: [
+                EmergencyCategory(title: "Medical", icon: "cross.case.fill", description: "Crises like seizures, allergic reactions, or sudden collapse."),
+                EmergencyCategory(title: "Fire", icon: "flame.fill", description: "Active fires, smoke inhalation, or trapped occupants."),
+                EmergencyCategory(title: "Crime/Violence", icon: "shield.fill", description: "Robbery, assault, kidnapping, or domestic violence."),
+                EmergencyCategory(title: "Accident", icon: "car.fill", description: "Vehicle collisions, falls, or workplace incidents."),
+                EmergencyCategory(title: "Natural Disaster", icon: "tornado", description: "Earthquakes, tornadoes, floods, or extreme weather."),
+                EmergencyCategory(title: "Other Emergency", icon: "exclamationmark.triangle.fill", description: "Anything urgent that doesn’t fit a preset category.")
+            ]
         )
     }
 }
