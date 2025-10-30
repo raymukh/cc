@@ -104,8 +104,8 @@ struct AssistiveHeroCard: View {
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text("Readiness")
                             .font(.footnote.weight(.semibold))
                             .textCase(.uppercase)
@@ -121,19 +121,19 @@ struct AssistiveHeroCard: View {
                     Text(readiness.statusLabel)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(BridgeAITheme.merlot)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(.white.opacity(0.9))
+                                .fill(.white.opacity(0.92))
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HStack(alignment: .center, spacing: 20) {
+                    HStack(alignment: .center, spacing: 16) {
                         ReadinessRing(progress: readiness.clampedProgress)
                             .frame(width: 72, height: 72)
 
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Readiness snapshot")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(.white)
@@ -144,15 +144,15 @@ struct AssistiveHeroCard: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .padding(.vertical, 16)
-                    .padding(.horizontal, 18)
+                    .padding(.vertical, 18)
+                    .padding(.horizontal, 20)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(.white.opacity(0.12))
                     )
                 }
                 .padding(.vertical, 22)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 22)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .fill(.white.opacity(0.08))
@@ -1768,7 +1768,7 @@ final class AssistiveModel: ObservableObject {
                     ]
                 ),
                 CrisisScenario(
-                    title: "tornado warning",
+                    title: "Tornado Warning",
                     summary: "Secure a safe room, shield heads, and communicate status updates.",
                     duration: "5 min",
                     actionLabel: "Open shelter checklist",
