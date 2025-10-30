@@ -1175,10 +1175,6 @@ struct EmergencyTriggerPanel: View {
     @State private var isVoiceOverlayActive = false
     @State private var isMultiSensoryOverlayActive = false
 
-    private var columns: [GridItem] {
-        [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
-    }
-
     var body: some View {
         BridgeAISection(title: mode.displayTitle, subtitle: mode.subtitle) {
             VStack(alignment: .leading, spacing: 20) {
@@ -1192,8 +1188,23 @@ struct EmergencyTriggerPanel: View {
                     )
 
                     if isVoiceOverlayActive {
-                        EmergencyVoiceOverlay {
-                            toggleVoiceOverlay(forceClose: true)
+                        VStack(spacing: 18) {
+                            EmergencyVoiceOverlay {
+                                toggleVoiceOverlay(forceClose: true)
+                            }
+
+                            EmergencyScenarioContextView(prompt: mode.prompt, contextNote: $contextNote)
+
+                            EmergencyScenarioGrid(
+                                categories: categories,
+                                activeEmergency: model.activeEmergency,
+                                mode: mode,
+                                onSelect: { category in
+                                    model.activateEmergency(mode: mode, category: category, customMessage: contextNote)
+                                }
+                            )
+
+                            EmergencyScenarioFooter()
                         }
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
@@ -1207,45 +1218,27 @@ struct EmergencyTriggerPanel: View {
                     )
 
                     if isMultiSensoryOverlayActive {
-                        EmergencyMultiSensoryOverlay {
-                            toggleMultiSensoryOverlay(forceClose: true)
+                        VStack(spacing: 18) {
+                            EmergencyMultiSensoryOverlay {
+                                toggleMultiSensoryOverlay(forceClose: true)
+                            }
+
+                            EmergencyScenarioContextView(prompt: mode.prompt, contextNote: $contextNote)
+
+                            EmergencyScenarioGrid(
+                                categories: categories,
+                                activeEmergency: model.activeEmergency,
+                                mode: mode,
+                                onSelect: { category in
+                                    model.activateEmergency(mode: mode, category: category, customMessage: contextNote)
+                                }
+                            )
+
+                            EmergencyScenarioFooter()
                         }
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(mode.prompt)
-                        .font(.footnote)
-                        .foregroundStyle(BridgeAITheme.textMuted)
-
-                    TextField("Add extra details for responders", text: $contextNote, axis: .vertical)
-                        .lineLimit(1...3)
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(BridgeAITheme.surface)
-                        )
-                }
-
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(categories) { category in
-                        Button {
-                            model.activateEmergency(mode: mode, category: category, customMessage: contextNote)
-                        } label: {
-                            EmergencyCategoryButton(
-                                category: category,
-                                isSelected: model.activeEmergency?.mode == mode &&
-                                    model.activeEmergency?.category.id == category.id
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Text("Selecting an option immediately alerts your contacts and begins location tracking.")
-                    .font(.caption)
-                    .foregroundStyle(BridgeAITheme.textMuted)
             }
         }
     }
@@ -1420,6 +1413,66 @@ private struct EmergencyVoiceOverlay: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(.white.opacity(0.16))
         )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyScenarioContextView: View {
+    let prompt: String
+    @Binding var contextNote: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(prompt)
+                .font(.footnote)
+                .foregroundStyle(BridgeAITheme.textMuted)
+
+            TextField("Add extra details for responders", text: $contextNote, axis: .vertical)
+                .lineLimit(1...3)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(BridgeAITheme.surface)
+                )
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyScenarioGrid: View {
+    let categories: [EmergencyCategory]
+    let activeEmergency: ActiveEmergencyState?
+    let mode: EmergencyMode
+    var onSelect: (EmergencyCategory) -> Void
+
+    private var columns: [GridItem] {
+        [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+    }
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 14) {
+            ForEach(categories) { category in
+                Button {
+                    onSelect(category)
+                } label: {
+                    EmergencyCategoryButton(
+                        category: category,
+                        isSelected: activeEmergency?.mode == mode &&
+                            activeEmergency?.category.id == category.id
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+private struct EmergencyScenarioFooter: View {
+    var body: some View {
+        Text("Selecting an option immediately alerts your contacts and begins location tracking.")
+            .font(.caption)
+            .foregroundStyle(BridgeAITheme.textMuted)
     }
 }
 
