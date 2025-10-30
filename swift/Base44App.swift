@@ -144,66 +144,66 @@ private struct ReadinessStatusCard: View {
     let readiness: EmergencyReadiness
 
     var body: some View {
-        VStack {
-            VStack(spacing: 16) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("READINESS")
-                            .font(.caption.bold())
-                            .textCase(.uppercase)
-                            .foregroundStyle(.white.opacity(0.8))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Automation readiness")
+                        .font(.caption.bold())
+                        .textCase(.uppercase)
+                        .foregroundStyle(.white.opacity(0.85))
 
-                        Text(readiness.statusLabel)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color.white.opacity(0.2))
-                            )
-                    }
-
-                    Spacer()
-
-                    Text(readiness.formattedPercentage)
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                    Text(readiness.statusLabel)
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.white.opacity(0.2))
+                        )
                 }
 
-                Divider()
-                    .overlay(Color.white.opacity(0.25))
-                    .padding(.vertical, 12)
+                Spacer()
 
-                HStack(alignment: .center, spacing: 16) {
-                    ReadinessProgressCircle(progress: readiness.clampedProgress)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Readiness snapshot")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-
-                        Text(readiness.detail)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(BridgeAITheme.surface.opacity(0.35))
-                )
+                Text(readiness.formattedPercentage)
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
             }
-            .padding(20)
+
+            Divider()
+                .overlay(Color.white.opacity(0.25))
+                .padding(.vertical, 12)
+
+            HStack(alignment: .center, spacing: 16) {
+                ReadinessProgressCircle(progress: readiness.clampedProgress)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Readiness snapshot")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text(readiness.detail)
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(16)
             .background(
-                BridgeAITheme.readinessGradient
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(BridgeAITheme.surface.opacity(0.4))
             )
-            .cornerRadius(20)
         }
-        .padding()
-        .frame(maxWidth: 300)
-        .frame(maxWidth: .infinity)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(BridgeAITheme.readinessGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12))
+        )
     }
 }
 
