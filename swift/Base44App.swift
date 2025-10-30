@@ -4,45 +4,45 @@ import MapKit
 // MARK: - Entry Point
 @available(iOS 16.0, macOS 13.0, *)
 @main
-struct BridgeAIClientApp: App {
+struct CrisisAIClientApp: App {
     var body: some Scene {
         WindowGroup {
-            BridgeAIRootView()
+            CrisisAIRootView()
         }
     }
 }
 
 // MARK: - Root Navigation
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAIRootView: View {
-    @StateObject private var model = BridgeAIAppModel()
+struct CrisisAIRootView: View {
+    @StateObject private var model = CrisisAIAppModel()
 
     var body: some View {
         TabView(selection: $model.selectedTab) {
             AssistiveSupportView(model: model.assistiveModel)
                 .tabItem { Label("Assistive", systemImage: "heart.text.square") }
-                .tag(BridgeAIAppModel.Tab.assistive)
+                .tag(CrisisAIAppModel.Tab.assistive)
 
             EmergencyAutomationView(model: model.emergencyModel)
                 .tabItem { Label("Emergency", systemImage: "bolt.trianglebadge.exclamationmark") }
-                .tag(BridgeAIAppModel.Tab.emergency)
+                .tag(CrisisAIAppModel.Tab.emergency)
 
             LocationSafetyView(model: model.locationModel)
                 .tabItem { Label("Location", systemImage: "location.circle") }
-                .tag(BridgeAIAppModel.Tab.location)
+                .tag(CrisisAIAppModel.Tab.location)
 
             CourseLibraryView(model: model.courseModel)
                 .tabItem { Label("Courses", systemImage: "book.closed") }
-                .tag(BridgeAIAppModel.Tab.courses)
+                .tag(CrisisAIAppModel.Tab.courses)
         }
-        .accentColor(BridgeAITheme.primary)
+        .accentColor(CrisisAITheme.primary)
     }
 }
 
 // MARK: - App Model
 @available(iOS 16.0, macOS 13.0, *)
 @MainActor
-final class BridgeAIAppModel: ObservableObject {
+final class CrisisAIAppModel: ObservableObject {
     enum Tab: Hashable {
         case assistive
         case emergency
@@ -81,9 +81,9 @@ struct AssistiveSupportView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
             }
-            .background(BridgeAITheme.background.ignoresSafeArea())
+            .background(CrisisAITheme.background.ignoresSafeArea())
             .navigationTitle("Assistive")
-            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+            .toolbarBackground(CrisisAITheme.background, for: .navigationBar)
         }
     }
 }
@@ -145,7 +145,7 @@ struct AssistiveHeroCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.primaryGradient)
+                .fill(CrisisAITheme.primaryGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -246,14 +246,14 @@ private struct ReadinessStatusCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(BridgeAITheme.surface.opacity(0.42))
+                    .fill(CrisisAITheme.surface.opacity(0.42))
             )
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.readinessGradient)
+                .fill(CrisisAITheme.readinessGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -361,14 +361,14 @@ private struct AssistiveSearchPanel: View {
 
                 HStack(spacing: 12) {
                     Button("Cancel", action: onDismiss)
-                        .buttonStyle(BridgeAITertiaryButtonStyle())
+                        .buttonStyle(CrisisAITertiaryButtonStyle())
 
                     Spacer()
 
                     Button("Submit") {
                         onSubmit()
                     }
-                    .buttonStyle(BridgeAIActionButtonStyle())
+                    .buttonStyle(CrisisAIActionButtonStyle())
                     .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .opacity(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.7 : 1)
                 }
@@ -441,7 +441,7 @@ private struct AssistiveVoicePanel: View {
                             resetInteraction()
                         }
                     }
-                    .buttonStyle(BridgeAITertiaryButtonStyle())
+                    .buttonStyle(CrisisAITertiaryButtonStyle())
                     .frame(maxWidth: .infinity)
                 }
             } else {
@@ -454,7 +454,7 @@ private struct AssistiveVoicePanel: View {
             Button("End session") {
                 handleDismiss()
             }
-            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+            .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
         }
         .padding(22)
         .frame(maxWidth: .infinity)
@@ -505,7 +505,7 @@ private struct AssistiveVoicePanel: View {
                 responseDetails = [
                     "Move everyone to the safest nearby shelter space.",
                     "Secure doors and communicate status updates when you can.",
-                    "Keep your device accessible—BridgeAI is tracking location for responders."
+                    "Keep your device accessible—CrisisAI is tracking location for responders."
                 ]
             }
         }
@@ -547,7 +547,7 @@ private struct AssistiveVoiceResponseView: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.white)
 
-                Text("BridgeAI is responding")
+                Text("CrisisAI is responding")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.9))
             }
@@ -603,13 +603,13 @@ private struct RecordingMicrophoneView: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(BridgeAITheme.primary.opacity(isRecording ? 0.35 : 0.18), lineWidth: 3)
+                .stroke(CrisisAITheme.primary.opacity(isRecording ? 0.35 : 0.18), lineWidth: 3)
                 .frame(width: 96, height: 96)
                 .scaleEffect(animate ? 1.12 : 0.95)
                 .opacity(isRecording ? (animate ? 0.55 : 0.28) : 0.2)
 
             Circle()
-                .fill(BridgeAITheme.primary.opacity(isRecording ? 0.3 : 0.18))
+                .fill(CrisisAITheme.primary.opacity(isRecording ? 0.3 : 0.18))
                 .frame(width: 76, height: 76)
 
             Image(systemName: "mic.fill")
@@ -637,7 +637,7 @@ private struct RecordingMicrophoneView: View {
         .overlay(alignment: .bottom) {
             if isRecording {
                 Capsule()
-                    .fill(BridgeAITheme.primary.opacity(0.3))
+                    .fill(CrisisAITheme.primary.opacity(0.3))
                     .frame(width: 46, height: 6)
                     .padding(.bottom, -14)
             }
@@ -652,13 +652,13 @@ private struct ReadinessProgressCircle: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(BridgeAITheme.primary.opacity(0.25), lineWidth: 8)
+                .stroke(CrisisAITheme.primary.opacity(0.25), lineWidth: 8)
 
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [BridgeAITheme.primary, BridgeAITheme.primary.opacity(0.65)]),
+                        gradient: Gradient(colors: [CrisisAITheme.primary, CrisisAITheme.primary.opacity(0.65)]),
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: 8, lineCap: .round)
@@ -666,7 +666,7 @@ private struct ReadinessProgressCircle: View {
                 .rotationEffect(.degrees(-90))
 
             Circle()
-                .fill(BridgeAITheme.primary.opacity(0.2))
+                .fill(CrisisAITheme.primary.opacity(0.2))
                 .frame(width: 18, height: 18)
                 .offset(y: -28)
                 .rotationEffect(.degrees(progress * 360))
@@ -764,7 +764,7 @@ struct AssistiveScenarioSection: View {
     @Binding var scenarios: [CrisisScenario]
 
     var body: some View {
-        BridgeAISection(title: "Guided Scenarios", subtitle: "Practical walkthroughs for unfolding situations.") {
+        CrisisAISection(title: "Guided Scenarios", subtitle: "Practical walkthroughs for unfolding situations.") {
             ForEach($scenarios) { $scenario in
                 DisclosureGroup(isExpanded: $scenario.isExpanded) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -779,7 +779,7 @@ struct AssistiveScenarioSection: View {
                             Label(scenario.actionLabel, systemImage: "phone")
                                 .font(.subheadline.weight(.semibold))
                         }
-                        .buttonStyle(BridgeAIActionButtonStyle())
+                        .buttonStyle(CrisisAIActionButtonStyle())
                     }
                     .padding(.top, 12)
                 } label: {
@@ -787,25 +787,25 @@ struct AssistiveScenarioSection: View {
                         HStack {
                             Text(scenario.title)
                                 .font(.headline)
-                                .foregroundStyle(BridgeAITheme.textPrimary)
+                                .foregroundStyle(CrisisAITheme.textPrimary)
                             Spacer()
                             Text(scenario.duration)
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(BridgeAITheme.accent)
+                                .foregroundStyle(CrisisAITheme.accent)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(BridgeAITheme.accent.opacity(0.12))
+                                        .fill(CrisisAITheme.accent.opacity(0.12))
                                 )
                         }
 
                         Text(scenario.summary)
                             .font(.subheadline)
-                            .foregroundStyle(BridgeAITheme.textSecondary)
+                            .foregroundStyle(CrisisAITheme.textSecondary)
                     }
                 }
-                .disclosureGroupStyle(BridgeAICardDisclosureStyle())
+                .disclosureGroupStyle(CrisisAICardDisclosureStyle())
             }
         }
     }
@@ -819,17 +819,17 @@ struct ScenarioStepRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
-                .fill(BridgeAITheme.primary.opacity(0.12))
+                .fill(CrisisAITheme.primary.opacity(0.12))
                 .frame(width: 28, height: 28)
                 .overlay(
                     Text("\(stepNumber)")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.primary)
+                        .foregroundStyle(CrisisAITheme.primary)
                 )
 
             Text(text)
                 .font(.callout)
-                .foregroundStyle(BridgeAITheme.textPrimary)
+                .foregroundStyle(CrisisAITheme.textPrimary)
         }
     }
 }
@@ -840,7 +840,7 @@ struct SupplyCartSection: View {
     @State private var isPresentingAddItem = false
 
     var body: some View {
-        BridgeAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
+        CrisisAISection(title: "Supply Cart", subtitle: "Track inventory and reminders for essentials.") {
             VStack(spacing: 16) {
                 VStack(spacing: 12) {
                     ForEach(items) { item in
@@ -864,7 +864,7 @@ struct SupplyCartSection: View {
                     Label("Add supply item", systemImage: "plus")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
             }
         }
         .sheet(isPresented: $isPresentingAddItem) {
@@ -900,18 +900,18 @@ struct SupplyItemRow: View {
             Button(action: onToggle) {
                 Image(systemName: item.isOwned ? "checkmark.square.fill" : "square")
                     .font(.title3)
-                    .foregroundStyle(item.isOwned ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+                    .foregroundStyle(item.isOwned ? CrisisAITheme.primary : CrisisAITheme.textMuted)
             }
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.textPrimary)
+                    .foregroundStyle(CrisisAITheme.textPrimary)
                 if !item.detail.isEmpty {
                     Text(item.detail)
                         .font(.caption)
-                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .foregroundStyle(CrisisAITheme.textSecondary)
                 }
             }
 
@@ -920,17 +920,17 @@ struct SupplyItemRow: View {
             if let reminder = item.reminderDate {
                 Text(reminder)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.accent)
+                    .foregroundStyle(CrisisAITheme.accent)
             }
 
             Button(action: onRemove) {
                 Image(systemName: "trash")
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.merlot)
+                    .foregroundStyle(CrisisAITheme.merlot)
                     .padding(8)
                     .background(
                         Circle()
-                            .fill(BridgeAITheme.surfaceSecondary.opacity(0.7))
+                            .fill(CrisisAITheme.surfaceSecondary.opacity(0.7))
                     )
             }
             .buttonStyle(.plain)
@@ -939,7 +939,7 @@ struct SupplyItemRow: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 }
@@ -1036,38 +1036,38 @@ struct CalmModeSection: View {
     @Binding var settings: CalmSettings
 
     var body: some View {
-        BridgeAISection(title: "Calm Mode", subtitle: "Accessibility-first cues to lower stress.") {
+        CrisisAISection(title: "Calm Mode", subtitle: "Accessibility-first cues to lower stress.") {
             VStack(alignment: .leading, spacing: 18) {
                 Toggle(isOn: $settings.voiceGuidance) {
                     Label("Soothing narration", systemImage: "ear.badge.waveform")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $settings.hapticSupport) {
                     Label("Rhythmic haptics", systemImage: "waveform.path")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $settings.highContrast) {
                     Label("High-contrast cards", systemImage: "circle.lefthalf.filled")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Stepper(value: $settings.breathingPace, in: 4...12) {
                     HStack {
                         Text("Guided breathing pace")
                         Spacer()
                         Text("\(settings.breathingPace) cpm")
-                            .foregroundStyle(BridgeAITheme.accent)
+                            .foregroundStyle(CrisisAITheme.accent)
                     }
                 }
                 .font(.subheadline)
-                .foregroundStyle(BridgeAITheme.textPrimary)
+                .foregroundStyle(CrisisAITheme.textPrimary)
             }
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(BridgeAITheme.surface)
+                    .fill(CrisisAITheme.surface)
             )
         }
     }
@@ -1115,9 +1115,9 @@ struct EmergencyAutomationView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
             }
-            .background(BridgeAITheme.background.ignoresSafeArea())
+            .background(CrisisAITheme.background.ignoresSafeArea())
             .navigationTitle("Emergency")
-            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+            .toolbarBackground(CrisisAITheme.background, for: .navigationBar)
         }
     }
 }
@@ -1189,12 +1189,12 @@ struct EmergencyStatusCard: View {
             Button("Call 911") {
                 model.callEmergencyServices()
             }
-            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+            .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
         }
         .padding(26)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.emergencyGradient)
+                .fill(CrisisAITheme.emergencyGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -1238,7 +1238,7 @@ struct EmergencyContactsSection: View {
     @State private var isPresentingManager = false
 
     var body: some View {
-        BridgeAISection(
+        CrisisAISection(
             title: "Emergency contacts",
             subtitle: "Everyone who receives instant notifications when help is needed."
         ) {
@@ -1246,12 +1246,12 @@ struct EmergencyContactsSection: View {
                 if contacts.isEmpty {
                     Text("Add family, friends, or teammates so alerts reach the right people instantly.")
                         .font(.footnote)
-                        .foregroundStyle(BridgeAITheme.textMuted)
+                        .foregroundStyle(CrisisAITheme.textMuted)
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(BridgeAITheme.surface)
+                                .fill(CrisisAITheme.surface)
                         )
                 } else {
                     ForEach(contacts) { contact in
@@ -1262,7 +1262,7 @@ struct EmergencyContactsSection: View {
                 Button("Manage contacts") {
                     isPresentingManager = true
                 }
-                .buttonStyle(BridgeAITertiaryButtonStyle())
+                .buttonStyle(CrisisAITertiaryButtonStyle())
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -1281,11 +1281,11 @@ struct EmergencyContactRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(contact.name)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.textPrimary)
+                    .foregroundStyle(CrisisAITheme.textPrimary)
 
                 Text(contact.relationship)
                     .font(.caption)
-                    .foregroundStyle(BridgeAITheme.textMuted)
+                    .foregroundStyle(CrisisAITheme.textMuted)
             }
 
             Spacer()
@@ -1293,17 +1293,17 @@ struct EmergencyContactRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Label(contact.phone, systemImage: "phone")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.primary)
+                    .foregroundStyle(CrisisAITheme.primary)
 
                 if contact.isPrimary {
                     Text("Primary contact")
                         .font(.caption2.weight(.bold))
-                        .foregroundStyle(BridgeAITheme.accent)
+                        .foregroundStyle(CrisisAITheme.accent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(BridgeAITheme.primary.opacity(0.08))
+                                .fill(CrisisAITheme.primary.opacity(0.08))
                         )
                 }
             }
@@ -1311,7 +1311,7 @@ struct EmergencyContactRow: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 }
@@ -1330,7 +1330,7 @@ struct EmergencyContactsEditor: View {
                     if contacts.isEmpty {
                         Text("Tap add to create your first emergency contact.")
                             .font(.subheadline)
-                            .foregroundStyle(BridgeAITheme.textMuted)
+                            .foregroundStyle(CrisisAITheme.textMuted)
                             .padding(.vertical, 8)
                     }
 
@@ -1509,7 +1509,7 @@ struct EmergencyTriggerPanel: View {
     @State private var isMultiSensoryOverlayActive = false
 
     var body: some View {
-        BridgeAISection(title: mode.displayTitle, subtitle: mode.subtitle) {
+        CrisisAISection(title: mode.displayTitle, subtitle: mode.subtitle) {
             VStack(alignment: .leading, spacing: 20) {
                 if mode == .voice {
                     EmergencyModeActivationButton(
@@ -1545,7 +1545,7 @@ struct EmergencyTriggerPanel: View {
                     EmergencyModeActivationButton(
                         icon: "ear.and.waveform",
                         title: "Multi-Sensory",
-                        detail: isMultiSensoryOverlayActive ? "Ambient audio cues armed." : "Let BridgeAI listen for distress signals.",
+                        detail: isMultiSensoryOverlayActive ? "Ambient audio cues armed." : "Let CrisisAI listen for distress signals.",
                         isActive: isMultiSensoryOverlayActive,
                         action: { toggleMultiSensoryOverlay() }
                     )
@@ -1612,32 +1612,32 @@ struct EmergencyCategoryButton: View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: category.icon)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : BridgeAITheme.primary)
+                .foregroundStyle(isSelected ? .white : CrisisAITheme.primary)
                 .padding(12)
                 .background(
                     Circle()
-                        .fill(isSelected ? BridgeAITheme.primary.opacity(0.4) : BridgeAITheme.primary.opacity(0.12))
+                        .fill(isSelected ? CrisisAITheme.primary.opacity(0.4) : CrisisAITheme.primary.opacity(0.12))
                 )
 
             Text(category.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : BridgeAITheme.textPrimary)
+                .foregroundStyle(isSelected ? .white : CrisisAITheme.textPrimary)
 
             Text(category.description)
                 .font(.caption)
-                .foregroundStyle(isSelected ? .white.opacity(0.9) : BridgeAITheme.textSecondary)
+                .foregroundStyle(isSelected ? .white.opacity(0.9) : CrisisAITheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(isSelected ? BridgeAITheme.primary : BridgeAITheme.surface)
+                .fill(isSelected ? CrisisAITheme.primary : CrisisAITheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(
-                    isSelected ? BridgeAITheme.primary.opacity(0.0) : BridgeAITheme.primary.opacity(0.12),
+                    isSelected ? CrisisAITheme.primary.opacity(0.0) : CrisisAITheme.primary.opacity(0.12),
                     lineWidth: 1
                 )
         )
@@ -1657,20 +1657,20 @@ private struct EmergencyModeActivationButton: View {
             HStack(spacing: 16) {
                 Image(systemName: icon)
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(isActive ? .white : BridgeAITheme.primary)
+                    .foregroundStyle(isActive ? .black : CrisisAITheme.primary)
                     .frame(width: 52, height: 52)
                     .background(
                         Circle()
-                            .fill(isActive ? BridgeAITheme.primary.opacity(0.4) : BridgeAITheme.primary.opacity(0.12))
+                            .fill(isActive ? CrisisAITheme.primary.opacity(0.4) : CrisisAITheme.primary.opacity(0.12))
                     )
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
                         .font(.callout.weight(.semibold))
-                        .foregroundStyle(isActive ? .white : BridgeAITheme.textPrimary)
+                        .foregroundStyle(isActive ? .black : CrisisAITheme.textPrimary)
                     Text(detail)
                         .font(.caption)
-                        .foregroundStyle(isActive ? .white.opacity(0.85) : BridgeAITheme.textMuted)
+                        .foregroundStyle(isActive ? Color.black.opacity(0.85) : CrisisAITheme.textMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -1678,18 +1678,18 @@ private struct EmergencyModeActivationButton: View {
 
                 Image(systemName: isActive ? "xmark.circle.fill" : "play.fill")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(isActive ? .white : BridgeAITheme.primary)
+                    .foregroundStyle(isActive ? .black : CrisisAITheme.primary)
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(isActive ? BridgeAITheme.primary.opacity(0.25) : BridgeAITheme.surface)
+                    .fill(isActive ? CrisisAITheme.primary.opacity(0.25) : CrisisAITheme.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .strokeBorder(
-                        isActive ? BridgeAITheme.primary.opacity(0.45) : BridgeAITheme.surfaceSecondary.opacity(0.6)
+                        isActive ? CrisisAITheme.primary.opacity(0.45) : CrisisAITheme.surfaceSecondary.opacity(0.6)
                     )
             )
         }
@@ -1707,10 +1707,10 @@ private struct EmergencyVoiceOverlay: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("AI response listening")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.black)
                     Text("Hold steady while we capture your request.")
                         .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(Color.black.opacity(0.75))
                 }
 
                 Spacer()
@@ -1719,10 +1719,10 @@ private struct EmergencyVoiceOverlay: View {
                     Label("Stop", systemImage: "xmark")
                         .labelStyle(.iconOnly)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.75))
+                        .foregroundStyle(Color.black.opacity(0.7))
                         .padding(8)
                         .background(
-                            Circle().fill(.white.opacity(0.15))
+                            Circle().fill(Color.black.opacity(0.08))
                         )
                 }
                 .buttonStyle(.plain)
@@ -1733,18 +1733,18 @@ private struct EmergencyVoiceOverlay: View {
 
             Text("We’ll relay instructions to responders the moment you select a scenario.")
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Color.black.opacity(0.75))
                 .multilineTextAlignment(.center)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .center)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.white.opacity(0.12))
+                .fill(CrisisAITheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(.white.opacity(0.16))
+                .strokeBorder(Color.black.opacity(0.08))
         )
     }
 }
@@ -1758,14 +1758,14 @@ private struct EmergencyScenarioContextView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(prompt)
                 .font(.footnote)
-                .foregroundStyle(BridgeAITheme.textMuted)
+                .foregroundStyle(CrisisAITheme.textMuted)
 
             TextField("Add extra details for responders", text: $contextNote, axis: .vertical)
                 .lineLimit(1...3)
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(BridgeAITheme.surface)
+                        .fill(CrisisAITheme.surface)
                 )
         }
     }
@@ -1805,7 +1805,7 @@ private struct EmergencyScenarioFooter: View {
     var body: some View {
         Text("Selecting an option immediately alerts your contacts and begins location tracking.")
             .font(.caption)
-            .foregroundStyle(BridgeAITheme.textMuted)
+            .foregroundStyle(CrisisAITheme.textMuted)
     }
 }
 
@@ -1819,10 +1819,10 @@ private struct EmergencyMultiSensoryOverlay: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Ambient listening armed")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("BridgeAI is monitoring nearby audio cues for distress.")
+                        .foregroundStyle(.black)
+                    Text("CrisisAI is monitoring nearby audio cues for distress.")
                         .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(Color.black.opacity(0.75))
                 }
 
                 Spacer()
@@ -1831,10 +1831,10 @@ private struct EmergencyMultiSensoryOverlay: View {
                     Label("Stop", systemImage: "xmark")
                         .labelStyle(.iconOnly)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.75))
+                        .foregroundStyle(Color.black.opacity(0.7))
                         .padding(8)
                         .background(
-                            Circle().fill(.white.opacity(0.15))
+                            Circle().fill(Color.black.opacity(0.08))
                         )
                 }
                 .buttonStyle(.plain)
@@ -1845,23 +1845,23 @@ private struct EmergencyMultiSensoryOverlay: View {
 
             Text("If we detect alarming spikes, we’ll escalate and notify your contacts instantly.")
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Color.black.opacity(0.75))
                 .multilineTextAlignment(.center)
 
             Button("Exit monitoring") {
                 onDismiss()
             }
-            .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+            .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .center)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.white.opacity(0.12))
+                .fill(CrisisAITheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(.white.opacity(0.16))
+                .strokeBorder(Color.black.opacity(0.08))
         )
     }
 }
@@ -1877,7 +1877,7 @@ private struct AudioCueListeningView: View {
         HStack(spacing: 12) {
             ForEach(highHeights.indices, id: \.self) { index in
                 Capsule(style: .continuous)
-                    .fill(BridgeAITheme.primary.opacity(0.8))
+                    .fill(CrisisAITheme.primary.opacity(0.8))
                     .frame(width: 10, height: animate ? highHeights[index] : lowHeights[index])
                     .animation(
                         .easeInOut(duration: 0.7)
@@ -1944,12 +1944,12 @@ struct EmergencyActivationStatusView: View {
 
             HStack(spacing: 12) {
                 Button("Call 911", action: onCall911)
-                    .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                    .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
 
                 Button(action: onDeactivate) {
                     Text("I'm safe – Deactivate")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.merlot)
+                        .foregroundStyle(CrisisAITheme.merlot)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
@@ -1968,7 +1968,7 @@ struct EmergencyActivationStatusView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(BridgeAITheme.merlotGradient)
+                .fill(CrisisAITheme.merlotGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -1982,17 +1982,17 @@ struct EmergencyActionSection: View {
     @Binding var actions: [EmergencyAction]
 
     var body: some View {
-        BridgeAISection(title: "Immediate Actions", subtitle: "What fires automatically the second a trigger is heard.") {
+        CrisisAISection(title: "Immediate Actions", subtitle: "What fires automatically the second a trigger is heard.") {
             VStack(spacing: 16) {
                 ForEach($actions) { $action in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .center) {
                             Image(systemName: action.icon)
                                 .font(.title3)
-                                .foregroundStyle(BridgeAITheme.primary)
+                                .foregroundStyle(CrisisAITheme.primary)
                                 .frame(width: 32, height: 32)
                                 .background(
-                                    Circle().fill(BridgeAITheme.primary.opacity(0.12))
+                                    Circle().fill(CrisisAITheme.primary.opacity(0.12))
                                 )
 
                             VStack(alignment: .leading, spacing: 4) {
@@ -2000,14 +2000,14 @@ struct EmergencyActionSection: View {
                                     .font(.headline)
                                 Text(action.detail)
                                     .font(.footnote)
-                                    .foregroundStyle(BridgeAITheme.textSecondary)
+                                    .foregroundStyle(CrisisAITheme.textSecondary)
                             }
 
                             Spacer()
 
                             Toggle("", isOn: $action.isEnabled)
                                 .labelsHidden()
-                                .toggleStyle(BridgeAISwitchStyle())
+                                .toggleStyle(CrisisAISwitchStyle())
                         }
 
                         if action.requiresContactSelection {
@@ -2023,7 +2023,7 @@ struct EmergencyActionSection: View {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -2036,7 +2036,7 @@ struct EscalationPathSection: View {
     @Binding var pathways: [EscalationPathway]
 
     var body: some View {
-        BridgeAISection(title: "Escalation Path", subtitle: "How BridgeAI adjusts when you stop responding.") {
+        CrisisAISection(title: "Escalation Path", subtitle: "How CrisisAI adjusts when you stop responding.") {
             VStack(spacing: 16) {
                 ForEach($pathways) { $path in
                     VStack(alignment: .leading, spacing: 10) {
@@ -2046,23 +2046,23 @@ struct EscalationPathSection: View {
                             Spacer()
                             Text(path.delay)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(BridgeAITheme.accent)
+                                .foregroundStyle(CrisisAITheme.accent)
                         }
 
                         Text(path.summary)
                             .font(.footnote)
-                            .foregroundStyle(BridgeAITheme.textSecondary)
+                            .foregroundStyle(CrisisAITheme.textSecondary)
 
                         if !path.actions.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(path.actions, id: \.self) { action in
                                     HStack(spacing: 10) {
                                         Image(systemName: "arrow.right.circle.fill")
-                                            .foregroundStyle(BridgeAITheme.primary)
+                                            .foregroundStyle(CrisisAITheme.primary)
                                             .font(.caption)
                                         Text(action)
                                             .font(.caption)
-                                            .foregroundStyle(BridgeAITheme.textMuted)
+                                            .foregroundStyle(CrisisAITheme.textMuted)
                                     }
                                 }
                             }
@@ -2071,7 +2071,7 @@ struct EscalationPathSection: View {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -2084,22 +2084,22 @@ struct EvidenceCaptureSection: View {
     @Binding var settings: EvidenceSettings
 
     var body: some View {
-        BridgeAISection(title: "Evidence Capture", subtitle: "Gather context silently and securely.") {
+        CrisisAISection(title: "Evidence Capture", subtitle: "Gather context silently and securely.") {
             VStack(alignment: .leading, spacing: 18) {
                 Toggle(isOn: $settings.audioEnabled) {
                     Label("30-second audio snapshot", systemImage: "waveform.and.magnifyingglass")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $settings.videoEnabled) {
                     Label("Front camera clip", systemImage: "video")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $settings.smsFallback) {
                     Label("SMS fallback when offline", systemImage: "message.badge.waveform")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Picker("Retention", selection: $settings.retention) {
                     ForEach(EvidenceSettings.Retention.allCases, id: \.self) { retention in
@@ -2111,7 +2111,7 @@ struct EvidenceCaptureSection: View {
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(BridgeAITheme.surface)
+                    .fill(CrisisAITheme.surface)
             )
         }
     }
@@ -2137,9 +2137,9 @@ struct LocationSafetyView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
             }
-            .background(BridgeAITheme.background.ignoresSafeArea())
+            .background(CrisisAITheme.background.ignoresSafeArea())
             .navigationTitle("Location")
-            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+            .toolbarBackground(CrisisAITheme.background, for: .navigationBar)
         }
     }
 }
@@ -2184,12 +2184,12 @@ struct LocationHeroCard: View {
             Button("Share live trail") {
                 isShowingTrail = true
             }
-                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
         }
         .padding(26)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.primaryGradient)
+                .fill(CrisisAITheme.primaryGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -2223,7 +2223,7 @@ private struct LocationTrailSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Map(coordinateRegion: $region, annotationItems: annotations) { annotation in
-                    MapMarker(coordinate: annotation.coordinate, tint: BridgeAITheme.primary)
+                    MapMarker(coordinate: annotation.coordinate, tint: CrisisAITheme.primary)
                 }
                     .overlay(alignment: .topLeading) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -2249,7 +2249,7 @@ private struct LocationTrailSheet: View {
                         .font(.headline)
                     Text("Contacts see live updates. Auto-expiring in \(status.autoExpireMinutes) minutes after resolution.")
                         .font(.subheadline)
-                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .foregroundStyle(CrisisAITheme.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
@@ -2257,10 +2257,10 @@ private struct LocationTrailSheet: View {
                 Button("Stop sharing") {
                     dismiss()
                 }
-                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
             }
             .padding(24)
-            .background(BridgeAITheme.background)
+            .background(CrisisAITheme.background)
             .navigationTitle("Live trail")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -2283,7 +2283,7 @@ struct SafeZoneSection: View {
     @Binding var zones: [SafeZone]
 
     var body: some View {
-        BridgeAISection(title: "Safe Zones", subtitle: "Watch doors, routes, and daily check-ins.") {
+        CrisisAISection(title: "Safe Zones", subtitle: "Watch doors, routes, and daily check-ins.") {
             VStack(spacing: 14) {
                 ForEach($zones) { $zone in
                     VStack(alignment: .leading, spacing: 10) {
@@ -2293,23 +2293,23 @@ struct SafeZoneSection: View {
                             Spacer()
                             Toggle("", isOn: $zone.isMonitoring)
                                 .labelsHidden()
-                                .toggleStyle(BridgeAISwitchStyle())
+                                .toggleStyle(CrisisAISwitchStyle())
                         }
 
                         Text(zone.window)
                             .font(.footnote)
-                            .foregroundStyle(BridgeAITheme.textSecondary)
+                            .foregroundStyle(CrisisAITheme.textSecondary)
 
                         if let note = zone.note {
                             Text(note)
                                 .font(.caption)
-                                .foregroundStyle(BridgeAITheme.textMuted)
+                                .foregroundStyle(CrisisAITheme.textMuted)
                         }
                     }
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -2322,38 +2322,38 @@ struct LocationAutomationSection: View {
     @Binding var automation: LocationAutomation
 
     var body: some View {
-        BridgeAISection(title: "Escalation Logic", subtitle: "Escalate when movement stops or deviates.") {
+        CrisisAISection(title: "Escalation Logic", subtitle: "Escalate when movement stops or deviates.") {
             VStack(alignment: .leading, spacing: 18) {
                 Toggle(isOn: $automation.motionCheck) {
                     Label("Detect prolonged stillness", systemImage: "figure.stand")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $automation.routeDeviation) {
                     Label("Alert when off-route", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Toggle(isOn: $automation.lowBatteryFailsafe) {
                     Label("Escalate under 10% battery", systemImage: "battery.25")
                 }
-                .toggleStyle(BridgeAISwitchStyle())
+                .toggleStyle(CrisisAISwitchStyle())
 
                 Stepper(value: $automation.checkInterval, in: 1...10) {
                     HStack {
                         Text("Check interval")
                         Spacer()
                         Text("Every \(automation.checkInterval) min")
-                            .foregroundStyle(BridgeAITheme.accent)
+                            .foregroundStyle(CrisisAITheme.accent)
                     }
                 }
                 .font(.subheadline)
-                .foregroundStyle(BridgeAITheme.textPrimary)
+                .foregroundStyle(CrisisAITheme.textPrimary)
             }
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(BridgeAITheme.surface)
+                    .fill(CrisisAITheme.surface)
             )
         }
     }
@@ -2364,17 +2364,17 @@ struct NearbySupportSection: View {
     let services: [NearbyService]
 
     var body: some View {
-        BridgeAISection(title: "Nearby Support", subtitle: "Hospitals, stations, and shelters filtered to your scenario.") {
+        CrisisAISection(title: "Nearby Support", subtitle: "Hospitals, stations, and shelters filtered to your scenario.") {
             VStack(spacing: 14) {
                 ForEach(services) { service in
                     HStack(alignment: .center, spacing: 12) {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(BridgeAITheme.primary.opacity(0.12))
+                            .fill(CrisisAITheme.primary.opacity(0.12))
                             .frame(width: 48, height: 48)
                             .overlay(
                                 Image(systemName: service.icon)
                                     .font(.title3)
-                                    .foregroundStyle(BridgeAITheme.primary)
+                                    .foregroundStyle(CrisisAITheme.primary)
                             )
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -2382,19 +2382,19 @@ struct NearbySupportSection: View {
                                 .font(.subheadline.weight(.semibold))
                             Text("\(service.distance) • updated \(service.updated)")
                                 .font(.caption)
-                                .foregroundStyle(BridgeAITheme.textSecondary)
+                                .foregroundStyle(CrisisAITheme.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(BridgeAITheme.textMuted)
+                            .foregroundStyle(CrisisAITheme.textMuted)
                     }
                     .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -2436,9 +2436,9 @@ struct CourseLibraryView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 28)
             }
-            .background(BridgeAITheme.background.ignoresSafeArea())
+            .background(CrisisAITheme.background.ignoresSafeArea())
             .navigationTitle("Courses")
-            .toolbarBackground(BridgeAITheme.background, for: .navigationBar)
+            .toolbarBackground(CrisisAITheme.background, for: .navigationBar)
             .navigationDestination(for: CourseRoute.self) { route in
                 switch route {
                 case .featured:
@@ -2501,12 +2501,12 @@ struct CourseHeroCard: View {
             }
 
             Button("Continue practice", action: onResume)
-                .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
         }
         .padding(26)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(BridgeAITheme.merlotGradient)
+                .fill(CrisisAITheme.merlotGradient)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
@@ -2521,34 +2521,34 @@ struct FeaturedCourseSection: View {
     let onResume: () -> Void
 
     var body: some View {
-        BridgeAISection(title: "Spotlight Simulation", subtitle: "Hands-on drills that adapt to your responses.") {
+        CrisisAISection(title: "Spotlight Simulation", subtitle: "Hands-on drills that adapt to your responses.") {
             VStack(alignment: .leading, spacing: 12) {
                 Text(course.title)
                     .font(.title3.weight(.semibold))
 
                 Text(course.description)
                     .font(.footnote)
-                    .foregroundStyle(BridgeAITheme.textSecondary)
+                    .foregroundStyle(CrisisAITheme.textSecondary)
 
                 HStack {
                     Label("Duration", systemImage: "timer")
                     Spacer()
                     Text(course.duration)
-                        .foregroundStyle(BridgeAITheme.accent)
+                        .foregroundStyle(CrisisAITheme.accent)
                 }
                 .font(.caption.weight(.semibold))
 
                 ProgressView(value: course.progress)
-                    .tint(BridgeAITheme.primary)
-                    .shadow(color: BridgeAITheme.primary.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .tint(CrisisAITheme.primary)
+                    .shadow(color: CrisisAITheme.primary.opacity(0.2), radius: 8, x: 0, y: 4)
 
                 Button("Resume module", action: onResume)
-                    .buttonStyle(BridgeAIActionButtonStyle(fullWidth: true))
+                    .buttonStyle(CrisisAIActionButtonStyle(fullWidth: true))
             }
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(BridgeAITheme.surface)
+                    .fill(CrisisAITheme.surface)
             )
         }
     }
@@ -2560,7 +2560,7 @@ struct CourseListSection: View {
     let onOpen: (CourseModule) -> Void
 
     var body: some View {
-        BridgeAISection(title: "Micro Lessons", subtitle: "Bite-sized practice with knowledge checks.") {
+        CrisisAISection(title: "Micro Lessons", subtitle: "Bite-sized practice with knowledge checks.") {
             VStack(spacing: 14) {
                 ForEach($courses) { $course in
                     VStack(alignment: .leading, spacing: 12) {
@@ -2570,7 +2570,7 @@ struct CourseListSection: View {
                                     .font(.headline)
                                 Text(course.focusArea)
                                     .font(.caption)
-                                    .foregroundStyle(BridgeAITheme.textMuted)
+                                    .foregroundStyle(CrisisAITheme.textMuted)
                             }
                             Spacer()
                             Text(course.badge.uppercased())
@@ -2580,12 +2580,12 @@ struct CourseListSection: View {
                                 .padding(.vertical, 4)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(BridgeAITheme.primary)
+                                        .fill(CrisisAITheme.primary)
                                 )
                         }
 
                         ProgressView(value: course.progress)
-                            .tint(BridgeAITheme.primary)
+                            .tint(CrisisAITheme.primary)
 
                         HStack {
                             Label("Quiz", systemImage: "checkmark.shield")
@@ -2593,24 +2593,24 @@ struct CourseListSection: View {
                             Text("\(course.duration) • \(course.level)")
                         }
                         .font(.caption)
-                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .foregroundStyle(CrisisAITheme.textSecondary)
 
                         HStack(spacing: 12) {
                             Button(course.isDownloaded ? "Remove download" : "Download for offline") {
                                 course.isDownloaded.toggle()
                             }
-                            .buttonStyle(BridgeAITertiaryButtonStyle())
+                            .buttonStyle(CrisisAITertiaryButtonStyle())
 
                             Button("Open module") {
                                 onOpen(course)
                             }
-                            .buttonStyle(BridgeAIActionButtonStyle())
+                            .buttonStyle(CrisisAIActionButtonStyle())
                         }
                     }
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -2628,7 +2628,7 @@ struct CourseDetailView: View {
             VStack(spacing: 24) {
                 CourseOverviewCard(course: course)
 
-                BridgeAISection(title: "Lesson plan", subtitle: "Check off each activity as you complete it.") {
+                CrisisAISection(title: "Lesson plan", subtitle: "Check off each activity as you complete it.") {
                     VStack(spacing: 12) {
                         ForEach(Array(course.lessons.enumerated()), id: \.element.id) { index, lesson in
                             CourseLessonRow(lesson: lesson) {
@@ -2639,12 +2639,12 @@ struct CourseDetailView: View {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
 
                 if !course.quiz.isEmpty {
-                    BridgeAISection(title: "Knowledge check", subtitle: "Answer to lock in what you learned.") {
+                    CrisisAISection(title: "Knowledge check", subtitle: "Answer to lock in what you learned.") {
                         VStack(spacing: 16) {
                             ForEach(Array(course.quiz.enumerated()), id: \.element.id) { index, question in
                                 CourseQuizQuestionView(question: question) { choice in
@@ -2656,7 +2656,7 @@ struct CourseDetailView: View {
                 }
 
                 if !course.resources.isEmpty {
-                    BridgeAISection(title: "Resources", subtitle: "Downloadables and quick references.") {
+                    CrisisAISection(title: "Resources", subtitle: "Downloadables and quick references.") {
                         VStack(spacing: 12) {
                             ForEach(Array(course.resources.enumerated()), id: \.element.id) { index, resource in
                                 CourseResourceRow(resource: resource) {
@@ -2670,7 +2670,7 @@ struct CourseDetailView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 28)
         }
-        .background(BridgeAITheme.background.ignoresSafeArea())
+        .background(CrisisAITheme.background.ignoresSafeArea())
         .navigationTitle(course.title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -2702,17 +2702,17 @@ struct CourseUnavailableView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(BridgeAITheme.accent)
+                .foregroundStyle(CrisisAITheme.accent)
             Text("Course unavailable")
                 .font(.headline)
             Text("This module could not be found. Please try again from the library.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(BridgeAITheme.textSecondary)
+                .foregroundStyle(CrisisAITheme.textSecondary)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(BridgeAITheme.background.ignoresSafeArea())
+        .background(CrisisAITheme.background.ignoresSafeArea())
     }
 }
 
@@ -2725,28 +2725,28 @@ struct CourseOverviewCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(course.focusArea.uppercased())
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.textMuted)
+                    .foregroundStyle(CrisisAITheme.textMuted)
                 Text(course.title)
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(BridgeAITheme.textPrimary)
+                    .foregroundStyle(CrisisAITheme.textPrimary)
             }
 
             Text(course.description)
                 .font(.footnote)
-                .foregroundStyle(BridgeAITheme.textSecondary)
+                .foregroundStyle(CrisisAITheme.textSecondary)
 
             VStack(alignment: .leading, spacing: 12) {
                 ProgressView(value: course.progress)
-                    .tint(BridgeAITheme.primary)
+                    .tint(CrisisAITheme.primary)
 
                 HStack {
                     Label("Progress", systemImage: "checkmark.seal")
-                        .labelStyle(BridgeAIIconLeadingLabelStyle())
-                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .labelStyle(CrisisAIIconLeadingLabelStyle())
+                        .foregroundStyle(CrisisAITheme.textSecondary)
                     Spacer()
                     Text("\(Int(course.progress * 100))%")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(BridgeAITheme.primary)
+                        .foregroundStyle(CrisisAITheme.primary)
                 }
             }
 
@@ -2756,7 +2756,7 @@ struct CourseOverviewCard: View {
                 Label(course.badge, systemImage: "star")
             }
             .font(.caption)
-            .foregroundStyle(BridgeAITheme.textSecondary)
+            .foregroundStyle(CrisisAITheme.textSecondary)
 
             if course.isComplete {
                 HStack(spacing: 8) {
@@ -2764,14 +2764,14 @@ struct CourseOverviewCard: View {
                     Text("Module complete! Great job staying ready.")
                 }
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(BridgeAITheme.accent)
+                .foregroundStyle(CrisisAITheme.accent)
                 .padding(.top, 4)
             }
         }
         .padding(22)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 }
@@ -2786,27 +2786,27 @@ struct CourseLessonRow: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: lesson.isComplete ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(lesson.isComplete ? BridgeAITheme.primary : BridgeAITheme.textMuted)
+                    .foregroundStyle(lesson.isComplete ? CrisisAITheme.primary : CrisisAITheme.textMuted)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(lesson.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BridgeAITheme.textPrimary)
+                        .foregroundStyle(CrisisAITheme.textPrimary)
                     Text(lesson.detail)
                         .font(.footnote)
-                        .foregroundStyle(BridgeAITheme.textSecondary)
+                        .foregroundStyle(CrisisAITheme.textSecondary)
                 }
 
                 Spacer()
 
                 Text(lesson.duration)
                     .font(.caption)
-                    .foregroundStyle(BridgeAITheme.textMuted)
+                    .foregroundStyle(CrisisAITheme.textMuted)
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(BridgeAITheme.surfaceSecondary)
+                    .fill(CrisisAITheme.surfaceSecondary)
             )
         }
         .buttonStyle(.plain)
@@ -2822,7 +2822,7 @@ struct CourseQuizQuestionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(question.prompt)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(BridgeAITheme.textPrimary)
+                .foregroundStyle(CrisisAITheme.textPrimary)
 
             VStack(spacing: 10) {
                 ForEach(Array(question.choices.enumerated()), id: \.offset) { index, choice in
@@ -2838,14 +2838,14 @@ struct CourseQuizQuestionView: View {
             if let selected = question.selectedIndex {
                 Text(selected == question.correctIndex ? "Great call—keep that reflex sharp." : question.explanation)
                     .font(.caption)
-                    .foregroundStyle(selected == question.correctIndex ? BridgeAITheme.primary : BridgeAITheme.merlot)
+                    .foregroundStyle(selected == question.correctIndex ? CrisisAITheme.primary : CrisisAITheme.merlot)
                     .padding(.top, 6)
             }
         }
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 
@@ -2910,18 +2910,18 @@ struct QuizChoiceRow: View {
 
     private var background: Color {
         switch state {
-        case .idle: return BridgeAITheme.surfaceSecondary
-        case .correct: return BridgeAITheme.primary.opacity(0.18)
-        case .incorrect: return BridgeAITheme.merlot.opacity(0.16)
-        case .revealedCorrect: return BridgeAITheme.primary.opacity(0.12)
+        case .idle: return CrisisAITheme.surfaceSecondary
+        case .correct: return CrisisAITheme.primary.opacity(0.18)
+        case .incorrect: return CrisisAITheme.merlot.opacity(0.16)
+        case .revealedCorrect: return CrisisAITheme.primary.opacity(0.12)
         }
     }
 
     private var foreground: Color {
         switch state {
-        case .idle: return BridgeAITheme.textPrimary
-        case .correct, .revealedCorrect: return BridgeAITheme.primary
-        case .incorrect: return BridgeAITheme.merlot
+        case .idle: return CrisisAITheme.textPrimary
+        case .correct, .revealedCorrect: return CrisisAITheme.primary
+        case .incorrect: return CrisisAITheme.merlot
         }
     }
 }
@@ -2935,16 +2935,16 @@ struct CourseResourceRow: View {
         HStack(spacing: 14) {
             Image(systemName: resource.icon)
                 .font(.title3)
-                .foregroundStyle(BridgeAITheme.primary)
+                .foregroundStyle(CrisisAITheme.primary)
                 .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(resource.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.textPrimary)
+                    .foregroundStyle(CrisisAITheme.textPrimary)
                 Text(resource.detail)
                     .font(.caption)
-                    .foregroundStyle(BridgeAITheme.textSecondary)
+                    .foregroundStyle(CrisisAITheme.textSecondary)
             }
 
             Spacer()
@@ -2953,18 +2953,18 @@ struct CourseResourceRow: View {
                 Button("Saved") {
                     onToggle()
                 }
-                .buttonStyle(BridgeAITertiaryButtonStyle())
+                .buttonStyle(CrisisAITertiaryButtonStyle())
             } else {
                 Button("Save") {
                     onToggle()
                 }
-                .buttonStyle(BridgeAIActionButtonStyle())
+                .buttonStyle(CrisisAIActionButtonStyle())
             }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 }
@@ -2974,7 +2974,7 @@ struct CertificationSection: View {
     let partners: [CertificationPartner]
 
     var body: some View {
-        BridgeAISection(title: "Certifications", subtitle: "Advance with recognized partners.") {
+        CrisisAISection(title: "Certifications", subtitle: "Advance with recognized partners.") {
             VStack(spacing: 16) {
                 ForEach(partners) { partner in
                     HStack {
@@ -2983,16 +2983,16 @@ struct CertificationSection: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(partner.focus)
                                 .font(.caption)
-                                .foregroundStyle(BridgeAITheme.textSecondary)
+                                .foregroundStyle(CrisisAITheme.textSecondary)
                         }
                         Spacer()
                         Button("View pathway") {}
-                            .buttonStyle(BridgeAITertiaryButtonStyle())
+                            .buttonStyle(CrisisAITertiaryButtonStyle())
                     }
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(BridgeAITheme.surface)
+                            .fill(CrisisAITheme.surface)
                     )
                 }
             }
@@ -3002,7 +3002,7 @@ struct CertificationSection: View {
 
 // MARK: - Shared Components
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAISection<Content: View>: View {
+struct CrisisAISection<Content: View>: View {
     let title: String
     let subtitle: String
     private let content: Content
@@ -3018,10 +3018,10 @@ struct BridgeAISection<Content: View>: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(BridgeAITheme.textPrimary)
+                    .foregroundStyle(CrisisAITheme.textPrimary)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(BridgeAITheme.textMuted)
+                    .foregroundStyle(CrisisAITheme.textMuted)
             }
 
             content
@@ -3030,7 +3030,7 @@ struct BridgeAISection<Content: View>: View {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAIIconLeadingLabelStyle: LabelStyle {
+struct CrisisAIIconLeadingLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .center, spacing: 16) {
             configuration.icon
@@ -3040,7 +3040,7 @@ struct BridgeAIIconLeadingLabelStyle: LabelStyle {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAIActionButtonStyle: ButtonStyle {
+struct CrisisAIActionButtonStyle: ButtonStyle {
     var fullWidth: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -3052,51 +3052,51 @@ struct BridgeAIActionButtonStyle: ButtonStyle {
             .padding(.horizontal, 20)
             .background(
                 Capsule(style: .continuous)
-                    .fill(configuration.isPressed ? BridgeAITheme.primary.opacity(0.8) : BridgeAITheme.primary)
+                    .fill(configuration.isPressed ? CrisisAITheme.primary.opacity(0.8) : CrisisAITheme.primary)
             )
-            .shadow(color: BridgeAITheme.primary.opacity(configuration.isPressed ? 0 : 0.25), radius: 12, x: 0, y: 8)
+            .shadow(color: CrisisAITheme.primary.opacity(configuration.isPressed ? 0 : 0.25), radius: 12, x: 0, y: 8)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAITertiaryButtonStyle: ButtonStyle {
+struct CrisisAITertiaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(BridgeAITheme.primary)
+            .foregroundStyle(CrisisAITheme.primary)
             .padding(.vertical, 10)
             .padding(.horizontal, 16)
             .background(
                 Capsule(style: .continuous)
-                    .fill(BridgeAITheme.primary.opacity(configuration.isPressed ? 0.16 : 0.12))
+                    .fill(CrisisAITheme.primary.opacity(configuration.isPressed ? 0.16 : 0.12))
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .strokeBorder(BridgeAITheme.primary.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(CrisisAITheme.primary.opacity(0.2), lineWidth: 1)
             )
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAISwitchStyle: ToggleStyle {
+struct CrisisAISwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
-                .foregroundStyle(BridgeAITheme.textPrimary)
+                .foregroundStyle(CrisisAITheme.textPrimary)
             Spacer()
             Toggle(isOn: configuration.$isOn) {
                 EmptyView()
             }
             .labelsHidden()
             .toggleStyle(.switch)
-            .tint(BridgeAITheme.primary)
+            .tint(CrisisAITheme.primary)
         }
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct BridgeAICardDisclosureStyle: DisclosureGroupStyle {
+struct CrisisAICardDisclosureStyle: DisclosureGroupStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Button(action: { configuration.isExpanded.toggle() }) {
@@ -3105,7 +3105,7 @@ struct BridgeAICardDisclosureStyle: DisclosureGroupStyle {
                     Spacer()
                     Image(systemName: configuration.isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(BridgeAITheme.textMuted)
+                        .foregroundStyle(CrisisAITheme.textMuted)
                 }
             }
             .buttonStyle(.plain)
@@ -3117,7 +3117,7 @@ struct BridgeAICardDisclosureStyle: DisclosureGroupStyle {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(BridgeAITheme.surface)
+                .fill(CrisisAITheme.surface)
         )
     }
 }
@@ -3297,7 +3297,7 @@ final class AssistiveModel: ObservableObject {
 
 final class SupplyItemStore {
     private enum Constants {
-        static let storageKey = "bridgeai.supplyItems"
+        static let storageKey = "crisisai.supplyItems"
     }
 
     private let defaults: UserDefaults
@@ -3334,7 +3334,7 @@ final class SupplyItemStore {
 
 final class EmergencyContactStore {
     private enum Constants {
-        static let storageKey = "bridgeai.emergencyContacts"
+        static let storageKey = "crisisai.emergencyContacts"
     }
 
     private let defaults: UserDefaults
@@ -3544,7 +3544,7 @@ final class EmergencyModel: ObservableObject {
     static func sample() -> EmergencyModel {
         EmergencyModel(
             triggerPhrase: "Help me now",
-            primaryChannel: "BridgeAI secure line",
+            primaryChannel: "CrisisAI secure line",
             contacts: [
                 EmergencyContact(name: "Taylor Morgan", relationship: "Partner", phone: "(415) 555-0198", isPrimary: true),
                 EmergencyContact(name: "Jordan Lee", relationship: "Parent", phone: "(312) 555-0056", isPrimary: false),
@@ -3553,7 +3553,7 @@ final class EmergencyModel: ObservableObject {
             actions: [
                 EmergencyAction(
                     title: "Call 911 dispatcher",
-                    detail: "Routes through the BridgeAI command desk with your location.",
+                    detail: "Routes through the CrisisAI command desk with your location.",
                     icon: "phone.and.waveform",
                     isEnabled: true,
                     requiresContactSelection: false,
@@ -3966,7 +3966,7 @@ final class CourseModel: ObservableObject {
 }
 
 // MARK: - Theme
-enum BridgeAITheme {
+enum CrisisAITheme {
     static let primary = Color(red: 0.082, green: 0.376, blue: 0.478) // #15607A
     static let merlot = Color(red: 0.239, green: 0.031, blue: 0.078) // #3D0814
     static let background = Color(red: 0.953, green: 0.965, blue: 0.984) // #F3F6FB
