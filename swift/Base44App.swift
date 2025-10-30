@@ -92,8 +92,8 @@ struct AssistiveHeroCard: View {
     let readiness: EmergencyReadiness
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 32) {
+            VStack(alignment: .leading, spacing: 20) {
                 Text(overview.title)
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -101,9 +101,10 @@ struct AssistiveHeroCard: View {
                 Text(overview.summary)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.white.opacity(0.92))
+                    .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Readiness")
                             .font(.footnote.weight(.semibold))
@@ -128,11 +129,11 @@ struct AssistiveHeroCard: View {
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HStack(alignment: .center, spacing: 16) {
+                    HStack(alignment: .center, spacing: 20) {
                         ReadinessRing(progress: readiness.clampedProgress)
                             .frame(width: 72, height: 72)
 
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Readiness snapshot")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(.white)
@@ -143,14 +144,15 @@ struct AssistiveHeroCard: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 18)
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(.white.opacity(0.12))
                     )
                 }
-                .padding(18)
+                .padding(.vertical, 22)
+                .padding(.horizontal, 20)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .fill(.white.opacity(0.08))
@@ -160,7 +162,7 @@ struct AssistiveHeroCard: View {
             Divider()
                 .overlay(.white.opacity(0.18))
 
-            HStack(spacing: 16) {
+            HStack(spacing: 18) {
                 MetricBadge(
                     icon: "magnifyingglass",
                     title: "AI Search",
@@ -175,8 +177,8 @@ struct AssistiveHeroCard: View {
             }
 
         }
-        .padding(.vertical, 28)
-        .padding(.horizontal, 26)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
