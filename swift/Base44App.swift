@@ -40,6 +40,7 @@ struct BridgeAIRootView: View {
 
 // MARK: - App Model
 @available(iOS 16.0, macOS 13.0, *)
+@MainActor
 final class BridgeAIAppModel: ObservableObject {
     enum Tab: Hashable {
         case assistive
